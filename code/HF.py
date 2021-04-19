@@ -9,13 +9,7 @@ def construct_Density_matrix(C,number_electrons,l):
     P=C@n@C.conjugate().T
     return P
 
-    P=np.zeros((2*l,2*l),dtype=np.complex64) # P matrix
-    for tau in range(2*l):
-        for sigma in range(2*l):
-            for i in range(number_electrons):
-                P[tau,sigma]=np.conj(C[sigma,i])*C[tau,i]
-    return P
-def costruct_Fock_matrix(P,l,number_electrons,system):
+def costruct_Fock_matrix(P,l,number_electrons,system,anti_symmetrize=True):
     udirect=np.zeros((2*l,2*l),dtype=np.complex64)
     uexchange=np.zeros((2*l,2*l),dtype=np.complex64)
     for tau in range(2*l):
@@ -23,33 +17,46 @@ def costruct_Fock_matrix(P,l,number_electrons,system):
             for mu in range(2*l):
                 for nu in range(2*l):
                     udirect[mu,nu]+=P[tau,sigma]*system.u[mu,sigma,nu,tau]
-                    #uexchange[mu,nu]+=P[tau,sigma]*system.u[mu,sigma,tau,nu]
+                    if not anti_symmetrize:
+                        uexchange[mu,nu]+=P[tau,sigma]*system.u[mu,sigma,tau,nu]
     F=system.h+udirect-uexchange
     return F
-
-
+def solve(system,number_electrons,number_basissets,C=None,anti_symmetrize=True,tol=1e-8,maxiter=100):
+    if C is None:
+        C=np.random.rand(2*number_basissets,2*number_basissets)
+    P=np.zeros(C.shape)
+    for i in range(maxiter):
+        if(i>=1):
+            convergence_difference=np.max(np.abs(P-P_old))
+            if (convergence_difference<tol):
+                break
+        P_old=P
+        P=construct_Density_matrix(C,number_electrons,number_basissets)
+        F=costruct_Fock_matrix(P,number_basissets,number_electrons,system,anti_symmetrize)
+        epsilon, C = scipy.linalg.eigh(F)
+        #print(epsilon)
+    return F,epsilon, C
+def compute_energy(C,F,system,number_electrons,number_basissets):
+    energy=0
+    P=construct_Density_matrix(C,number_electrons,number_basissets)
+    for mu in range (2*number_basissets):
+        for nu in range(2*number_basissets):
+            energy+=P[nu,mu]*(system.h[nu,mu]+F[nu,mu])
+    return energy*0.5
 l=10
 grids_length=10
-num_grid_points=2001
+num_grid_points=101
 omega=0.25
-a=1e10
+a=0.25
 odho = ODQD(l, grids_length, num_grid_points, a=a, alpha=1, potential=ODQD.HOPotential(omega))
-number_electrons=6
-system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=True)
-print(system.u)
-
+number_electrons=2
+anti_symmetrize=True
+system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=anti_symmetrize)
+print("Reference energy: ",(system.compute_reference_energy()))
+#epsilon,C=scipy.linalg.eigh(system.construct_fock_matrix(system.h,system.u)); #Øyvinds kode
+#print(epsilon) #epsilon fra Øyvinds kode
 C=np.eye(2*l) #Create an initial guess for the coefficients
-P=np.zeros((2*l,2*l))
-for i in range(50):
-    P_old=P
-    P=construct_Density_matrix(C,number_electrons,l)
-    if(20<i<30):
-        P=(P_old+P)/2
-    #print(P)
-    F=costruct_Fock_matrix(P,l,number_electrons,system)
-    #F=system.construct_fock_matrix(system.h,system.u)
-    #print(F)
-    epsilon, C = scipy.linalg.eigh(F)
-    print(epsilon)
-    #print(C[0,:])
-    #print(np.sum(C[:,1]*C[:,1]))
+F,epsilon,C=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-8,maxiter=500,C=C)
+print(np.diag(F)-epsilon) # This should be as close to zero as possible
+print(epsilon)
+print("Energy: ",compute_energy(C,F,system,number_electrons,l))

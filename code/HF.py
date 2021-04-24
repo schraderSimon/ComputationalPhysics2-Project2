@@ -143,15 +143,15 @@ def find_psquared(system,C,number_basissets,num_grid_points):
         for k in range(number_basissets):
             wf_up[i]+=(C_up[k,i]*spin_up[k])
             wf_down[i]+=(C_down[k,i]*spin_down[k])
-    #I think there's a bug here, but I got to ask Øyvind about it!
-    densities=(np.abs(wf_up)**2+np.abs(wf_down)**2)* 2 #times two because of the bug!
+    densities=(np.abs(wf_up)**2+np.abs(wf_down)**2)
     return densities
 np.set_printoptions(precision=4)
 l=10
 grids_length=10
-num_grid_points=101
+num_grid_points=1001
 omega=0.25
 a=0.25
+steplength=(grids_length*2)/(num_grid_points-1)
 odho = ODQD(l, grids_length, num_grid_points, a=a, alpha=1, potential=ODQD.HOPotential(omega))
 number_electrons=2
 anti_symmetrize=True
@@ -182,10 +182,9 @@ for i in range(2*l):
 plt.grid()
 plt.legend()
 plt.show()
-print(0.01*np.sum(densities[0]))
-print(0.01*np.sum(np.abs(system.spf[0]) ** 2))
-"""verification"""
-ground_state_density=0.5*(densities[0]+densities[1])
+print(steplength*np.sum(densities[0]))
+print(steplength*np.sum(system.spf[0]*np.conj(system.spf[0])))
+ground_state_density=(densities[0]+densities[1])
 fig, ax = plt.subplots(figsize=(16, 10))
 ax.plot(system.grid,ground_state_density)
 ax.set_xlim(-6,6)

@@ -3,6 +3,7 @@ import numba
 import matplotlib.pyplot as plt
 from quantum_systems import ODQD, GeneralOrbitalSystem
 import scipy
+import seaborn as sns
 def construct_Density_matrix(C,number_electrons,l):
     """
     n=np.eye(2*l)
@@ -85,7 +86,7 @@ def solve_DIIS(system,number_electrons,number_basissets,C=None,anti_symmetrize=T
             B[4,4]=0
             for k in range(4):
                 for l in range(4):
-                    B[k,l]=np.max(abs(np.dot(error_matrices[:,:,k].flatten(),error_matrices[:,:,l].flatten())))#,ord=inf)
+                    #B[k,l]=np.max(abs(np.dot(error_matrices[:,:,k].flatten(),error_matrices[:,:,l].flatten())))#,ord=inf)
                     B[k,l]=np.linalg.norm(error_matrices[:,:,k]@error_matrices[:,:,l])#,ord=inf)
             sol=np.zeros(5)
             sol[-1]=-1
@@ -126,10 +127,15 @@ def solve_DIIS(system,number_electrons,number_basissets,C=None,anti_symmetrize=T
 def compute_energy(C,F,system,number_electrons,number_basissets):
     energy=0
     P=construct_Density_matrix(C,number_electrons,number_basissets)
+    tot_vec=system.h+F
+    energy=0.5*np.einsum("nm,mn->",P,tot_vec)
+    return energy
+    """
     for mu in range (2*number_basissets):
         for nu in range(2*number_basissets):
-            energy+=P[nu,mu]*(system.h[nu,mu]+F[nu,mu])
+            energy+=P[nu,mu]*(system.h[mu,nu]+F[mu,nu])
     return energy*0.5
+    """
 def find_psquared(system,C,number_basissets,num_grid_points):
     spin_up=system.spf[::2]
     spin_down=system.spf[1::2]
@@ -137,18 +143,43 @@ def find_psquared(system,C,number_basissets,num_grid_points):
     C_down=C[1::2,:]
     wf_up=np.zeros((2*l,num_grid_points),dtype=np.complex128)
     wf_down=np.zeros((2*l,num_grid_points),dtype=np.complex128)
-    print(C_up.shape)
-    print(spin_up.shape)
     for i in range(2*number_basissets):
         for k in range(number_basissets):
             wf_up[i]+=(C_up[k,i]*spin_up[k])
             wf_down[i]+=(C_down[k,i]*spin_down[k])
     densities=(np.abs(wf_up)**2+np.abs(wf_down)**2)
+    #densities=(np.abs(wf_up+wf_down)**2)
     return densities
+def get_dipole_matrix(system,number_basissets,num_grid_points,grid_length):
+    """Create a 2*l matrix with M[mu,nu]=<mu|x|nu>"""
+    """This is the AO basis"""
+    l=number_basissets
+    M=np.zeros((2*l,2*l),dtype=np.complex64)
+    xvals=np.linspace(-grid_length,grid_length,num_grid_points)
+    for i in range(2*l):
+        for k in range(2*l):
+            if i%2 != k%2: #If i and k are not both even or both odd
+                M[i,k]=0
+                continue
+            integrand=np.conj(system.spf[i])*xvals*(system.spf[k])
+            M[i,k]=integrate_trapezoidal(integrand,2*grid_length/num_grid_points)
+    return M
+def get_dipole(C,system,number_basissets,num_grid_points,grid_length):
+    P=construct_Density_matrix(C,number_electrons,number_basissets)
+    dipole_matrix=get_dipole_matrix(system,number_basissets,num_grid_points,grid_length)
+    return -np.einsum("mn,nm->",P,dipole_matrix)
+def integrate_trapezoidal(function_array,step):
+    integral=0
+    for i in range(1,len(function_array)-1):
+        integral+=function_array[i]
+    integral*=2
+    integral+=function_array[0]+function_array[-1]
+    integral*=step/2
+    return integral
 np.set_printoptions(precision=4)
 l=10
 grids_length=10
-num_grid_points=1001
+num_grid_points=2001
 omega=0.25
 a=0.25
 steplength=(grids_length*2)/(num_grid_points-1)
@@ -156,14 +187,22 @@ odho = ODQD(l, grids_length, num_grid_points, a=a, alpha=1, potential=ODQD.HOPot
 number_electrons=2
 anti_symmetrize=True
 system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=anti_symmetrize)
-print(system.spf)
+#print(system.spf)
 print("Reference energy: ",(system.compute_reference_energy()))
 C=np.eye(2*l) #Create an initial guess for the coefficients
-F,epsilon,C,converged=solve_DIIS(system,2,l,anti_symmetrize=anti_symmetrize,tol=1e-5,maxiter=100,C=C)
+F,epsilon,C,converged=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-5,maxiter=25,C=C)
 groundstate=C[:,0] #First column
 print(np.dot(groundstate,groundstate),np.sum(groundstate))
 print("Converged: ",converged)
 print("Energy: ",compute_energy(C,F,system,number_electrons,l))
+
+"""Test difference between P and F"""
+P=construct_Density_matrix(C,number_electrons,l)
+F=costruct_Fock_matrix(P,l,number_electrons,system,anti_symmetrize)
+print("Absolute deviation: ",np.max(np.abs(P@F-F@P)))
+print("Dipole: ",get_dipole(C,system,l,num_grid_points,grids_length))
+
+"""Plot new basis densities and energies"""
 newbasis=np.zeros((2*l,num_grid_points),dtype=np.complex128)
 for i in range(2*l):
     for k in range(2*l):
@@ -172,24 +211,34 @@ fig = plt.figure(figsize=(16, 10))
 potential = odho.HOPotential(omega=omega)
 densities=find_psquared(system,C,l,num_grid_points)
 plt.plot(system.grid, potential(system.grid))
-for i in range(2*l):
+for i in range(0,2*l,2):
     plt.plot(
         system.grid,
-        np.abs(densities[i]) + system.h[i, i].real,
+        np.abs(densities[i]) + epsilon[i].real,
         label=r"$\chi_{" + f"{i}" + r"}$",
     )
 
 plt.grid()
+plt.xlabel("Position [a.u.]")
+plt.ylabel(r"Molecular orbit density + $\epsilon$")
+plt.savefig("../figures/MO_densities.pdf")
 plt.legend()
 plt.show()
-print(steplength*np.sum(densities[0]))
-print(steplength*np.sum(system.spf[0]*np.conj(system.spf[0])))
+
+"""Plot electron density of the occupied system"""
 ground_state_density=(densities[0]+densities[1])
+
 fig, ax = plt.subplots(figsize=(16, 10))
-ax.plot(system.grid,ground_state_density)
+ax.plot(system.grid,ground_state_density,label="HF ground state density")
+ax.plot(system.grid,(system.spf[0]*np.conj(system.spf[0])+system.spf[1]*np.conj(system.spf[1])).real,label="Ground state with no interactions")
 ax.set_xlim(-6,6)
-ax.set_ylim(0,0.4)
+ax.set_ylim(0,0.6)
 im=plt.imread("ref.png")
 ax.imshow(im,extent=[-6,6,0,0.4],aspect='auto')
+plt.xlabel("distance [a.u.]")
+plt.ylabel(r"electron density $\rho$")
+plt.legend()
+plt.xlabel("Position [a.u.]")
+plt.ylabel(r"Total electron density $\rho$")
+plt.savefig("../figures/total_density.pdf")
 plt.show()
-print(0.01*np.sum(ground_state_density))

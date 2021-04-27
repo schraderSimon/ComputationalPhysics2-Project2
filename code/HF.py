@@ -1,5 +1,5 @@
 import numpy as np
-import numba
+from numba import jit
 import matplotlib.pyplot as plt
 from quantum_systems import ODQD, GeneralOrbitalSystem
 import scipy
@@ -168,6 +168,7 @@ def get_dipole(C,system,number_basissets,num_grid_points,grid_length):
     P=construct_Density_matrix(C,number_electrons,number_basissets)
     dipole_matrix=get_dipole_matrix(system,number_basissets,num_grid_points,grid_length)
     return -np.einsum("mn,nm->",P,dipole_matrix)
+@jit(nopython=True)
 def integrate_trapezoidal(function_array,step):
     integral=0
     for i in range(1,len(function_array)-1):

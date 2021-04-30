@@ -4,7 +4,9 @@ import matplotlib.pyplot as plt
 from quantum_systems import ODQD, GeneralOrbitalSystem
 import scipy
 import seaborn as sns
+from numpy import sin
 def construct_Density_matrix(C,number_electrons,l):
+    """
     n=np.eye(2*l)
     for i in range(number_electrons,2*l):
         n[i,i]=0
@@ -12,7 +14,7 @@ def construct_Density_matrix(C,number_electrons,l):
     """
     slicy=slice(0,number_electrons)
     P=np.einsum("ma,va->mv",C[:,slicy],C.conjugate()[:,slicy])
-    """
+
     return P
 
 def costruct_Fock_matrix(P,l,number_electrons,system,anti_symmetrize=True):
@@ -165,16 +167,18 @@ def get_dipole_matrix(system,number_basissets,num_grid_points,grid_length):
     xvals=np.linspace(-grid_length,grid_length,num_grid_points)
     for i in range(2*l):
         for k in range(2*l):
-            if i%2 != k%2: #If i and k are not both even or both odd. This is because the integral is necessarily zero when the two orbitals don't have the same spin.
+            if (i%2 != k%2): #If i and k are not both even or both odd. This is because the integral is necessarily zero when the two orbitals don't have the same spin.
                 M[i,k]=0
                 continue
             integrand=np.conj(system.spf[i])*xvals*(system.spf[k])
-            M[i,k]=integrate_trapezoidal(integrand,2*grid_length/num_grid_points)
+            M[i,k]=integrate_trapezoidal(integrand,2*grid_length/(num_grid_points-1))
     print(M)
     return M
 def get_dipole(C,system,number_basissets,num_grid_points,grid_length):
     P=construct_Density_matrix(C,number_electrons,number_basissets)
-    dipole_matrix=get_dipole_matrix(system,number_basissets,num_grid_points,grid_length)
+    dipole_matrixold=get_dipole_matrix(system,number_basissets,num_grid_points,grid_length)
+    dipole_matrix=system.position[0]
+    print("Maximal difference Øyvind, I:",np.max(np.abs(dipole_matrix-dipole_matrixold)))
     return -np.einsum("mn,nm->",P,dipole_matrix)
 
 
@@ -187,10 +191,10 @@ def integrate_trapezoidal(function_array,step):
     integral+=function_array[0]+function_array[-1]
     integral*=step/2
     return integral
-np.set_printoptions(precision=4)
+np.set_printoptions(precision=1,linewidth=150)
 l=10
 grids_length=10
-num_grid_points=1001
+num_grid_points=101
 omega=0.25
 a=0.25
 steplength=(grids_length*2)/(num_grid_points-1)
@@ -201,12 +205,11 @@ system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=an
 #print(system.spf)
 print("Reference energy: ",(system.compute_reference_energy()))
 C=np.eye(2*l) #Create an initial guess for the coefficients
-F,epsilon,C,converged=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-16,maxiter=500,C=C)
-groundstate=C[:,0] #First column
-print(groundstate)
+F,epsilon,C,converged=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-16,maxiter=10000,C=C)
 print("Converged: ",converged)
 print("Energy: ",compute_energy(C,F,system,number_electrons,l))
-
+#system.change_basis(C)
+#C=np.eye(2*l)
 """Test difference between P and F"""
 P=construct_Density_matrix(C,number_electrons,l)
 F=costruct_Fock_matrix(P,l,number_electrons,system,anti_symmetrize)
@@ -214,6 +217,7 @@ print("Absolute deviation: ",np.max(np.abs(P@F-F@P)))
 print("Dipole: ",get_dipole(C,system,l,num_grid_points,grids_length))
 
 """Plot new basis densities and energies"""
+
 newbasis=np.zeros((2*l,num_grid_points),dtype=np.complex128)
 for i in range(2*l):
     for k in range(2*l):
@@ -237,11 +241,11 @@ plt.legend()
 plt.show()
 
 """Plot electron density of the occupied system"""
+
+ground_state_density=system.compute_particle_density(construct_Density_matrix(C,number_electrons,l))
+print("Øyvind ",integrate_trapezoidal(ground_state_density,step=2)*grids_length/(num_grid_points-1))
 ground_state_density=(densities[0]+densities[1])
 print("Own ",integrate_trapezoidal(ground_state_density,step=2)*grids_length/(num_grid_points-1))
-
-#density=find_density(system,C,l,number_electrons,num_grid_points)
-#print("Øyvind ",integrate_trapezoidal(density,step=2)*grids_length/(num_grid_points-1))
 
 fig, ax = plt.subplots(figsize=(16, 10))
 ax.plot(system.grid,ground_state_density,label="HF ground state density")
@@ -258,4 +262,78 @@ plt.legend()
 plt.xlabel("Position [a.u.]")
 plt.ylabel(r"Total electron density $\rho$")
 plt.savefig("../figures/total_density.pdf")
+plt.show()
+
+
+def timedependentPotential(t,somega=2,E=1):
+    return E*sin(somega*t)
+def constructTimeDependentFockMatrix(t,Ct,sys,func,number_electrons,l):
+    if len(Ct.shape)==1:
+        Ct=Ct.reshape((2*l,2*l))
+    Pt=construct_Density_matrix(Ct,number_electrons,l) #Time dependent density matrix
+    F=costruct_Fock_matrix(Pt,l,number_electrons,sys) #Non-external potential part
+    F+=sys.position[0]*func(t)
+    return F
+def RHS(t,Ct,sys,func,number_electrons,l):
+    if len(Ct.shape)==1:
+        Ct=Ct.reshape((2*l,2*l))
+    F=constructTimeDependentFockMatrix(t,Ct,sys,func,number_electrons,l);
+    #return -1j*np.ravel(Ct)
+    return -1j*np.ravel(F@Ct)
+
+def calculate_overlap(C,Ct):
+
+    occupied_0=C[:,0:1]
+    occupied_1=Ct[:,0:1]
+    return np.abs(np.linalg.det(np.conj(occupied_1).T@occupied_0))**4
+    """
+    occupied_0_up=C[::2,0:1]
+    occupied_1_up=Ct[::2,0:1]
+    occupied_0_down=C[1::2,0:1]
+    occupied_1_down=Ct[1::2,0:1]
+    returnval=np.abs(np.linalg.det(np.conj(occupied_1_up).T@occupied_0_up))**4+np.abs(np.linalg.det(np.conj(occupied_1_down).T@occupied_0_down))**4
+    """
+    return returnval
+
+class funcs(object):
+    def __init__(self, f, fargs=[]):
+        self._f = f
+        self.fargs=fargs
+    def f(self, t, y):
+        return self._f(t, y, *self.fargs)
+
+case=funcs(RHS,  fargs=[system,timedependentPotential,number_electrons,l ])
+integrator=scipy.integrate.complex_ode(case.f).set_integrator("vode")
+integrator.set_initial_value(C.ravel(),0)
+t=np.linspace(0,4*np.pi,1000)
+overlap=np.zeros(len(t))
+dt=t[1]-t[0]
+for i,tval in enumerate(t):
+    print(i)
+    sol=integrator.integrate(integrator.t+dt).reshape((2*l,2*l))
+    overlap[i]=calculate_overlap(C,sol)
+print(C)
+print(sol)
+C=sol
+densities=find_psquared(system,C,l,num_grid_points)
+ground_state_density=(densities[0]+densities[1])
+print("Own ",integrate_trapezoidal(ground_state_density,step=2)*grids_length/(num_grid_points-1))
+fig, ax = plt.subplots(figsize=(16, 10))
+ax.plot(system.grid,ground_state_density,label="HF ground state density")
+ax.set_xlim(-6,6)
+ax.set_ylim(0,0.6)
+plt.xlabel("distance [a.u.]")
+plt.ylabel(r"electron density $\rho$")
+plt.legend()
+plt.xlabel("Position [a.u.]")
+plt.ylabel(r"Total electron density $\rho$")
+plt.show()
+fig, ax = plt.subplots(figsize=(16, 10))
+
+ax.plot(t/(np.pi),overlap,linewidth=2)
+ax.set_ylim(0,1)
+ax.set_xlim(0,4)
+im=plt.imread("zanghellini2.png")
+ax.imshow(im,extent=[0,4,0,1],aspect='auto')
+
 plt.show()

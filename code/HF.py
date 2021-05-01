@@ -194,7 +194,7 @@ def integrate_trapezoidal(function_array,step):
 np.set_printoptions(precision=1,linewidth=150)
 l=10
 grids_length=10
-num_grid_points=101
+num_grid_points=1001
 omega=0.25
 a=0.25
 steplength=(grids_length*2)/(num_grid_points-1)
@@ -205,7 +205,7 @@ system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=an
 #print(system.spf)
 print("Reference energy: ",(system.compute_reference_energy()))
 C=np.eye(2*l) #Create an initial guess for the coefficients
-F,epsilon,C,converged=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-16,maxiter=10000,C=C)
+F,epsilon,C,converged=solve(system,number_electrons,l,anti_symmetrize=anti_symmetrize,tol=1e-16,maxiter=5000,C=C)
 print("Converged: ",converged)
 print("Energy: ",compute_energy(C,F,system,number_electrons,l))
 #system.change_basis(C)
@@ -282,19 +282,27 @@ def RHS(t,Ct,sys,func,number_electrons,l):
     return -1j*np.ravel(F@Ct)
 
 def calculate_overlap(C,Ct):
+    occupied_0=C[:,0:2]
+    occupied_1=Ct[:,0:2]
+    sum1=np.dot(np.conj(occupied_0[:,0]),occupied_1[:,0])
+    sum2=np.dot(np.conj(occupied_0[:,1]),occupied_1[:,1])
+    sum3=np.dot(np.conj(occupied_0[:,0]),occupied_1[:,1])
+    sum4=np.dot(np.conj(occupied_0[:,1]),occupied_1[:,0])
+    return (np.abs(sum1*sum2-sum3*sum4))**2
+"""
+def calculate_overlap(C,Ct):
 
-    occupied_0=C[:,0:1]
-    occupied_1=Ct[:,0:1]
-    return np.abs(np.linalg.det(np.conj(occupied_1).T@occupied_0))**4
-    """
-    occupied_0_up=C[::2,0:1]
-    occupied_1_up=Ct[::2,0:1]
-    occupied_0_down=C[1::2,0:1]
-    occupied_1_down=Ct[1::2,0:1]
-    returnval=np.abs(np.linalg.det(np.conj(occupied_1_up).T@occupied_0_up))**4+np.abs(np.linalg.det(np.conj(occupied_1_down).T@occupied_0_down))**4
-    """
-    return returnval
+    occupied_0=C[:,0:2]
+    occupied_1=Ct[:,0:2]
+    return np.abs(np.linalg.det(np.conj(occupied_1).T@occupied_0))**2
 
+    #occupied_0_up=C[::2,0:1]
+    #occupied_1_up=Ct[::2,0:1]
+    #occupied_0_down=C[1::2,0:1]
+    #occupied_1_down=Ct[1::2,0:1]
+    #returnval=np.abs(np.linalg.det(np.conj(occupied_1_up).T@occupied_0_up))**4+np.abs(np.linalg.det(np.conj(occupied_1_down).T@occupied_0_down))**4
+    #return returnval
+"""
 class funcs(object):
     def __init__(self, f, fargs=[]):
         self._f = f
@@ -305,15 +313,20 @@ class funcs(object):
 case=funcs(RHS,  fargs=[system,timedependentPotential,number_electrons,l ])
 integrator=scipy.integrate.complex_ode(case.f).set_integrator("vode")
 integrator.set_initial_value(C.ravel(),0)
-t=np.linspace(0,4*np.pi,1000)
+t=np.linspace(0,4*np.pi,2000)
 overlap=np.zeros(len(t))
+energies=np.zeros(len(t))
 dt=t[1]-t[0]
+ground_state_densities=np.zeros((num_grid_points,len(t)))
 for i,tval in enumerate(t):
-    print(i)
     sol=integrator.integrate(integrator.t+dt).reshape((2*l,2*l))
     overlap[i]=calculate_overlap(C,sol)
-print(C)
-print(sol)
+    densities=find_psquared(system,sol,l,num_grid_points)
+    ground_state_densities[:,i]=densities[0]#+densities[1]
+    F=constructTimeDependentFockMatrix(tval,sol,system,timedependentPotential,number_electrons,l)
+    P=construct_Density_matrix(sol,number_electrons,l)
+    #F=costruct_Fock_matrix(P,l,number_electrons,system,anti_symmetrize=True)
+    energies[i]=compute_energy(sol,F,system,number_electrons,l)
 C=sol
 densities=find_psquared(system,C,l,num_grid_points)
 ground_state_density=(densities[0]+densities[1])
@@ -327,13 +340,37 @@ plt.ylabel(r"electron density $\rho$")
 plt.legend()
 plt.xlabel("Position [a.u.]")
 plt.ylabel(r"Total electron density $\rho$")
-plt.show()
+#plt.show()
 fig, ax = plt.subplots(figsize=(16, 10))
 
-ax.plot(t/(np.pi),overlap,linewidth=2)
+ax.plot(t/np.pi,overlap,linewidth=2)
 ax.set_ylim(0,1)
 ax.set_xlim(0,4)
 im=plt.imread("zanghellini2.png")
 ax.imshow(im,extent=[0,4,0,1],aspect='auto')
+print(densities.shape)
+#plt.show()
+#plt.plot(t/(np.pi),energies)
+#plt.show()
 
+
+import matplotlib.animation as animation
+fig, ax = plt.subplots()
+
+line, = ax.plot(system.grid, np.sin(system.grid))
+
+
+def animate(i):
+    #line.set_ydata(np.sin(system.grid + i/10.0))  # update the data
+    line.set_ydata(ground_state_densities[:,i])
+    return line,
+
+
+# Init only required for blitting to give a clean slate.
+def init():
+    line.set_ydata(np.ma.array(system.grid, mask=True))
+    return line,
+
+ani = animation.FuncAnimation(fig, animate, np.arange(0, 1000), init_func=init,
+                              interval=2, blit=True)
 plt.show()

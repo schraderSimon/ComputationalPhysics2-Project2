@@ -67,7 +67,7 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     # INITIAL OUTPUT:
 
-    if text_output == "full"
+    if text_output != "none"
         println()
         println("Finding the Hartree-Fock approximate ground state energy of a 1-dimensional harmonic laser trap with 2 electrons.")
         println()
@@ -233,6 +233,14 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         calculate_spatial_density!()
         plot_spatial_density()
     end
+
+
+    # FINAL OUTPUT
+    if text_output != "none"
+        println("HF energy: ",round(G;digits=6))
+        println()
+    end
+
 
     return G
 end

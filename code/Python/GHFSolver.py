@@ -3,17 +3,59 @@ from quantum_systems import ODQD, GeneralOrbitalSystem
 import scipy
 from helper_functions import *
 class GHFSolverSystem(object):
-    def __init__(self,number_electrons=2,number_basisfunctions=10,grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
-        self.l=2*number_basisfunctions
+    """
+    General solver class for general Hartree Fock with HO-basis (1D) on a grid
+
+    Attributes
+    ---------
+    l : int
+        number of basis functions (2 times the argument)
+    grid_length: float
+        length of grid to solve HO wave function numerically
+    num_grid_points: int
+        number of points on the grid
+    steplength: float
+        distance between two grid points
+    omega: double
+        Harmonic Oscillator omega
+    a: double
+        shielding constant
+    number_electrons: int
+        The number of electrons
+    system: GeneralOrbitalsystem
+        The General orbital system constructed with the given parmeters
+    C: 2D array (complex)
+        The coefficient matrix. Initiated by "setC"
+    C0: 2D array (complex)
+        When starting to time evolve, the solution at time t=0.
+        Initiated by init_TDHF
+    integrator: scipy.integrate.complex_ode
+        The integrator to proceed the equations
+        Initiated by init_TDHF
+    func: function(t)
+        The time-dependent energy term
+        Initiated by init_TDHF
+
+
+    Methods
+    ---------
+
+    """
+
+    def __init__(self,number_electrons=2,number_basisfunctions=10,
+                grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
+        """Initialize
+        self.l=2*number_basisfunctions #Hartree Fock basis is twice the number of basis functions
         self.grid_length=grid_length
         self.num_grid_points=num_grid_points
-        self.steplength=(grid_length*2)/(num_grid_points-1)
+        self.steplength=(grid_length*2)/(num_grid_points-1) #Step length for Numerical integration or similar
         self.omega=omega
         self.a=a
         self.number_electrons=number_electrons
         odho = ODQD(number_basisfunctions, grid_length, num_grid_points, a=a, alpha=1, potential=ODQD.HOPotential(omega))
         anti_symmetrize=True
-        self.system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,anti_symmetrize=anti_symmetrize)
+        self.system=GeneralOrbitalSystem(n=number_electrons,basis_set=odho,
+                                        anti_symmetrize=anti_symmetrize)
     def setC(self,C=None):
         if C is None:
             self.C=np.random.rand(self.l,self.l) #Random matrix (possibly illegal)

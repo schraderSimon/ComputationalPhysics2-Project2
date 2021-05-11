@@ -1,6 +1,7 @@
 import numpy as np
 from quantum_systems import ODQD, GeneralOrbitalSystem
 import scipy
+from helper_functions import *
 class GHFSolverSystem(object):
     def __init__(self,number_electrons=2,number_basisfunctions=10,grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
         self.l=2*number_basisfunctions
@@ -79,9 +80,27 @@ class GHFSolverSystem(object):
     def integrate(self,dt):
         sol=self.integrator.integrate(self.integrator.t+dt).reshape((self.l,self.l))
         self.C=sol
-    def calculate_overlap(self):
+    def autocorrelation(self):
         occupied_0=self.C0[:,0:2]
         occupied_1=self.C[:,0:2]
-        return np.abs(np.linalg.det(np.conj(occupied_1).T@occupied_0))**2
+        return np.linalg.det(np.conj(occupied_1).T@occupied_0)
+    def calculate_overlap(self):
+        return np.abs(self.autocorrelation())**2
+    def get_dipole_matrix(self):
+        M=np.zeros((self.l,self.l),dtype=np.complex64)
+        xvals=np.linspace(-self.grid_length,self.grid_length,self.num_grid_points)
+        for i in range(self.l):
+            for k in range(self.l):
+                if (i%2 != k%2):
+                    M[i,k]=0
+                    continue
+                integrand=np.conj(self.system.spf[i])*xvals*(self.system.spf[k])
+                M[i,k]=integrate_trapezoidal(integrand,2*self.grid_length/(self.num_grid_points-1))
+        return M
+    def getDipolemoment(self):
+        P=self.construct_Density_matrix(self.C)
+        M=self.get_dipole_matrix()
+        return -np.einsum("mn,nm->",P,M)
     def reset_time(self):
         self.C=self.C0
+        self.setUpIntegrator()

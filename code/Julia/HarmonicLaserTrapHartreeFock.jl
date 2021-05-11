@@ -165,7 +165,7 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
                 return
             end
         end
-        println("– Warning: The Hartree-Fock algorithm did not convergence even after ",iterations," iterations! –")
+        println("– Warning: The Hartree-Fock algorithm did not converge even after ",iterations," iterations! –")
         println()
     end
 

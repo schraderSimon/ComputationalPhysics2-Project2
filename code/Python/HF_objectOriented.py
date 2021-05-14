@@ -50,8 +50,8 @@ def plot_Comparison_HF(amount):
     plt.tight_layout()
     plt.savefig("../../figures/comparison_RHF_GHF.pdf")
     plt.show()
-#plot_Comparison_HF(5000)
-
+plot_Comparison_HF(100)
+sys.exit(1)
 
 def plot_groundstate_densities():
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
@@ -81,7 +81,8 @@ def plot_groundstate_densities():
     plt.tight_layout()
     plt.savefig("../../figures/total_density.pdf")
     plt.show()
-#plot_groundstate_densities()
+plot_groundstate_densities()
+sys.exit(1)
 
 def plot_molecular_orbitals():
     colors=["blue","orange","green","red"]
@@ -185,7 +186,6 @@ def plot_time_evolution(time_potenial):
     plt.savefig("../../figures/time_overlap.pdf")
     plt.show()
 plot_time_evolution(timedependentPotential)
-sys.exit(1)
 
 
 

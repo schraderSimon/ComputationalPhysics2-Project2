@@ -160,10 +160,8 @@ class RHFSolverSystem(GHFSolverSystem):
         self.system=ODQD(number_basisfunctions, grid_length, num_grid_points, a=a, alpha=1, potential=ODQD.HOPotential(omega))
     def construct_Density_matrix(self,C):
         slicy=slice(0,int(self.number_electrons/2))
-        return np.einsum("ma,va->mv",C[:,slicy],C.conjugate()[:,slicy])
+        return 2*np.einsum("ma,va->mv",C[:,slicy],C.conjugate()[:,slicy]) #Eq. 3.145
     def construct_Fock_matrix(self,P):
         udirect=np.einsum("ts,msnt->mn",P,self.system.u)
         uexchange=np.einsum("ts,mstn->mn",P,self.system.u)
-        return self.system.h+udirect*2-uexchange
-    def get_energy(self):
-        return super().get_energy()*2
+        return self.system.h+udirect-0.5*uexchange #Also from S

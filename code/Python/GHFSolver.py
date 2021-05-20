@@ -57,9 +57,12 @@ class GHFSolverSystem(object):
                                         anti_symmetrize=anti_symmetrize)
     def setC(self,C=None):
         if C is None:
-            self.C=np.random.rand(self.l,self.l) #Random matrix (possibly illegal)
+            self.C=np.array(np.random.rand(self.l,self.l),dtype=complex128) #Random matrix (possibly illegal)
         else:
             self.C=C
+        P=self.construct_Density_matrix(self.C)
+        F=self.construct_Fock_matrix(P)
+        self.epsilon, throwaway = scipy.linalg.eigh(F)
     def construct_Density_matrix(self,C):
         slicy=slice(0,self.number_electrons)
         return np.einsum("ma,va->mv",C[:,slicy],C.conjugate()[:,slicy])
@@ -165,3 +168,10 @@ class RHFSolverSystem(GHFSolverSystem):
         udirect=np.einsum("ts,msnt->mn",P,self.system.u)
         uexchange=np.einsum("ts,mstn->mn",P,self.system.u)
         return self.system.h+udirect-0.5*uexchange #Also from S
+    def get_full_C(self):
+        C=np.zeros((2*self.l,2*self.l),dtype=np.complex128)
+        for i in range(self.l):
+            for j in range(self.l):
+                C[2*i,2*j]=self.C[i,j] #Same as RHS solution
+                C[2*i+1,2*j+1]=self.C[i,j]
+        return C

@@ -194,8 +194,8 @@ class GHFSolverSystem(object):
 
     def autocorrelation(self):
         """Calculate autocorrelation <psi(t)|psi>"""
-        occupied_0=self.C0[:,0:2]
-        occupied_1=self.C[:,0:2]
+        occupied_0=self.C0[:,0:2] #Two electrons
+        occupied_1=self.C[:,0:2] #Two electrons
         return np.linalg.det(np.conj(occupied_1).T@occupied_0)
 
     def calculate_overlap(self):

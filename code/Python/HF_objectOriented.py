@@ -54,7 +54,7 @@ def plot_Comparison_HF(amount):
     plt.tight_layout()
     plt.savefig("../../figures/comparison_RHF_GHF.pdf")
     plt.show()
-plot_Comparison_HF(100)
+#plot_Comparison_HF(100)
 
 def plot_groundstate_densities():
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
@@ -138,17 +138,17 @@ def plot_molecular_orbitals():
     ax2.legend()
     plt.savefig("../../figures/MO_densities.pdf")
     plt.show()
-plot_molecular_orbitals()
+#plot_molecular_orbitals()
 
-def plot_time_evolution(time_potenial):
+def plot_time_evolution(time_potenial,animate=False):
     sns.set_style("darkgrid")
     sns.set_context("talk")
     fig, ax = plt.subplots(figsize=(16, 4))
     ax.set_ylim(0,1)
     ax.set_xlim(0,16)
-    im=plt.imread("zanghellini2.png")
-    #ax.imshow(im,extent=[0,4,0,1],aspect='auto')
     t=np.linspace(0,16*pi,2000)
+
+    """RHF"""
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
     solver.solve(1e-14,25)
@@ -156,40 +156,41 @@ def plot_time_evolution(time_potenial):
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(C);
     grid=solver.system.grid
-    overlap=np.zeros(len(t))
-    dipole_moment=np.zeros(len(t),dtype=np.complex128)
+    overlap_RHF=np.zeros(len(t))
+    dipole_moment_RHF=np.zeros(len(t),dtype=np.complex128)
     energies=np.zeros(len(t))
     dt=t[1]-t[0]
-    ground_state_densities=np.zeros((num_grid_points,len(t)))
+    ground_state_densities_RHF=np.zeros((num_grid_points,len(t)))
     solver.init_TDHF(time_potenial)
-    overlap[0]=solver.calculate_overlap()
-    dipole_moment[0]=solver.getDipolemoment()
+    overlap_RHF[0]=solver.calculate_overlap()
+    dipole_moment_RHF[0]=solver.getDipolemoment()
     for i,tval in enumerate(t[:-1]):
         solver.integrate(dt) #Integrate a step dt
         densities=solver.getDensity()
-        ground_state_densities[:,i]=densities[0]
-        overlap[i+1]=solver.calculate_overlap()
-        dipole_moment[i+1]=solver.getDipolemoment()
-    ax.plot(2*t/(2*pi),overlap,label="RHF")
+        ground_state_densities_RHF[:,i]=densities[0]+densities[1]
+        overlap_RHF[i+1]=solver.calculate_overlap()
+        dipole_moment_RHF[i+1]=solver.getDipolemoment()
+
+    """GHF"""
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(2*l));
     solver.solve(1e-14,5000)
-    grid=solver.system.grid
-    overlap=np.zeros(len(t))
-    dipole_moment=np.zeros(len(t),dtype=np.complex128)
+    overlap_GHF=np.zeros(len(t))
+    dipole_moment_GHF=np.zeros(len(t),dtype=np.complex128)
     energies=np.zeros(len(t))
     dt=t[1]-t[0]
-    ground_state_densities=np.zeros((num_grid_points,len(t)))
+    ground_state_densities_GHF=np.zeros((num_grid_points,len(t)))
     solver.init_TDHF(time_potenial)
-    overlap[0]=solver.calculate_overlap()
-    dipole_moment[0]=solver.getDipolemoment()
+    overlap_GHF[0]=solver.calculate_overlap()
+    dipole_moment_GHF[0]=solver.getDipolemoment()
     for i,tval in enumerate(t[:-1]):
         solver.integrate(dt) #Integrate a step dt
         densities=solver.getDensity()
-        ground_state_densities[:,i]=densities[0]
-        overlap[i+1]=solver.calculate_overlap()
-        dipole_moment[i+1]=solver.getDipolemoment()
-    ax.plot(t/pi,overlap,label="GHF")
+        ground_state_densities_GHF[:,i]=densities[0]+densities[1]
+        overlap_GHF[i+1]=solver.calculate_overlap()
+        dipole_moment_GHF[i+1]=solver.getDipolemoment()
+    ax.plot(2*t/(2*pi),overlap_RHF,label="RHF")
+    ax.plot(t/pi,overlap_GHF,label="GHF")
 
     plt.legend()
     ax.set_xlabel(r"t $\lambda\omega/(2\pi)$")
@@ -197,8 +198,52 @@ def plot_time_evolution(time_potenial):
     plt.tight_layout()
     plt.savefig("../../figures/time_overlap.pdf")
     plt.show()
-plot_time_evolution(timedependentPotential_creator())
-#sys.exit(1)
+    sns.set_style("darkgrid")
+    sns.set_context("talk")
+    fig, ax = plt.subplots(figsize=(16, 4))
+    ax.set_xlim(0,16)
+    plt.plot(t/pi,dipole_moment_RHF,label="RHF",zorder=5)
+    plt.plot(t/pi,dipole_moment_GHF,label="GHF",zorder=3)
+    plt.legend()
+    plt.xlabel(r"t $\lambda\omega/(2\pi)$")
+    plt.ylabel(r"Dipole moment")
+    plt.tight_layout()
+    plt.savefig("../../figures/TDDipolemoment_laser.pdf")
+    plt.show()
+    def animation():
+        import matplotlib.animation as animation
+        fig, ax = plt.subplots()
+        line0, = ax.plot(grid, np.sin(grid),label="RHF")
+        line1, = ax.plot(grid, np.sin(grid),label="GHF")
+        time_text = ax.text(0.02, 0.90, '', transform=ax.transAxes)
+
+        def animate(i):
+            line0.set_ydata(ground_state_densities_RHF[:,i])
+            line1.set_ydata(ground_state_densities_GHF[:,i])
+            time_text.set_text(r'time =%.1f $\lambda\omega/(2\pi)$' % (t[i]/(2*pi)))
+
+            return line0,line1,time_text,
+        def init():
+            line0.set_ydata(np.ma.array(grid, mask=True))
+            line1.set_ydata(np.ma.array(grid, mask=True))
+            time_text.set_text("")
+
+            return line0,line1,time_text,
+
+        ani = animation.FuncAnimation(fig, animate, np.arange(0,len(t)), init_func=init,
+                                      interval=5, blit=True)
+        ax.set_xlabel("Position [a.u.]")
+        ax.set_ylabel(r"Total electron density $\rho$")
+        ax.set_xlim(-10,10)
+        ax.set_ylim(0,0.5)
+        plt.tight_layout()
+        ani.save('../../figures/animation.gif',fps=400)
+        plt.show()
+    if animate:
+        animation()
+
+plot_time_evolution(timedependentPotential_creator(),True)
+sys.exit(1)
 def plot_Fourier():
     T=pi
     number_elements=1000
@@ -254,7 +299,7 @@ def plot_Fourier():
     freq=np.split(np.fft.fftfreq(len(dipole_moment_RHF[throwaway:]),d=dt),2)[0]*(2*pi) #2pi to go from frequency to angular frequency
     plt.plot(freq,np.abs(sp_RHF)/np.max(np.abs(sp_GHF)),label="RHF",zorder=5)
     plt.plot(freq,np.abs(sp_GHF)/np.max(np.abs(sp_GHF)),label="GHF",zorder=3)
-    plt.xlim(0,0.5)
+    plt.xlim(0,1.0)
     plt.xlabel(r"Angular frequency")
     plt.ylabel("Relative intensity")
 
@@ -264,20 +309,3 @@ def plot_Fourier():
     plt.show()
     print(freq[1]-freq[0])
 plot_Fourier()
-
-
-def animate():
-    import matplotlib.animation as animation
-    fig, ax = plt.subplots()
-    line, = ax.plot(grid, np.sin(grid))
-    def animate(i):
-        line.set_ydata(ground_state_densities[:,i])
-        return line,
-    def init():
-        line.set_ydata(np.ma.array(grid, mask=True))
-        return line,
-
-    ani = animation.FuncAnimation(fig, animate, np.arange(0,len(t)), init_func=init,
-                                  interval=20, blit=True)
-    plt.show()
-#animate()

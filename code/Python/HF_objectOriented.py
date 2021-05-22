@@ -14,7 +14,7 @@ def wrapperFunction_creator(T=1*pi):
         returnval=(t<T)#*sin(pi*t/T)**2 #looks like I do not need the extra stuff.
         return returnval
     return func
-def timedependentPotential_creator(somega=2,E=1):
+def timedependentPotential_creator(somega=4,E=1):
     def func(t):
         return E*sin(somega*t)
     return func
@@ -22,25 +22,20 @@ def total_Potential_creator(wrapper,potential):
     def func(t):
         return wrapper(t)*potential(t)
     return func
-number_electrons=2;
-grid_length=10
-num_grid_points=1001
-omega=0.25
-a=0.25
-l=10
+
 def plot_Comparison_HF(amount):
     energy_RHF=np.zeros(amount)
     energy_GHF=np.zeros(amount)
     solver=RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
     for i in range(amount):
-        solver.solve(1e-14,1)
+        solver.solve(1e-17,1)
         energy_RHF[i]=solver.get_energy()
         print(i,energy_RHF[i])
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(2*l));
     for i in range(amount):
-        solver.solve(1e-14,1)
+        solver.solve(1e-17,1)
         energy_GHF[i]=solver.get_energy()
         print(i,energy_GHF[i])
     sns.set_style("darkgrid")
@@ -54,18 +49,17 @@ def plot_Comparison_HF(amount):
     plt.tight_layout()
     plt.savefig("../../figures/comparison_RHF_GHF.pdf")
     plt.show()
-#plot_Comparison_HF(100)
 
 def plot_groundstate_densities():
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
-    solver.solve(1e-14,25)
+    solver.solve(1e-17,25)
     C=solver.get_full_C()
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(C);
     densities=solver.getDensity()
     ground_state_density_RHF=(densities[0]+densities[1])
-    solver.solve(1e-14,5000)
+    solver.solve(1e-17,5000)
     densities=solver.getDensity()
     ground_state_density_GHF=(densities[0]+densities[1])
     grid=solver.system.grid
@@ -87,7 +81,6 @@ def plot_groundstate_densities():
     plt.tight_layout()
     plt.savefig("../../figures/total_density.pdf")
     plt.show()
-plot_groundstate_densities()
 
 def plot_molecular_orbitals():
     colors=["blue","orange","green","red"]
@@ -99,7 +92,7 @@ def plot_molecular_orbitals():
     grid=solver.system.grid
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
-    solver.solve(1e-14,25)
+    solver.solve(1e-17,25)
     C=solver.get_full_C()
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(C);
@@ -114,7 +107,7 @@ def plot_molecular_orbitals():
         )
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(2*l));
-    solver.solve(1e-14,5000)
+    solver.solve(1e-17,5000)
     densities=solver.getDensity()
     eigenvalues=solver.epsilon
     for i in range(0,4,1):
@@ -138,9 +131,8 @@ def plot_molecular_orbitals():
     ax2.legend()
     plt.savefig("../../figures/MO_densities.pdf")
     plt.show()
-#plot_molecular_orbitals()
 
-def plot_time_evolution(time_potenial,animate=False):
+def plot_time_evolution(time_potenial,animater=False,save_animation=False):
     sns.set_style("darkgrid")
     sns.set_context("talk")
     fig, ax = plt.subplots(figsize=(16, 4))
@@ -151,7 +143,7 @@ def plot_time_evolution(time_potenial,animate=False):
     """RHF"""
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
-    solver.solve(1e-14,25)
+    solver.solve(1e-17,25)
     C=solver.get_full_C()
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(C);
@@ -174,7 +166,7 @@ def plot_time_evolution(time_potenial,animate=False):
     """GHF"""
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(2*l));
-    solver.solve(1e-14,5000)
+    solver.solve(1e-17,5000)
     overlap_GHF=np.zeros(len(t))
     dipole_moment_GHF=np.zeros(len(t),dtype=np.complex128)
     energies=np.zeros(len(t))
@@ -237,13 +229,11 @@ def plot_time_evolution(time_potenial,animate=False):
         ax.set_xlim(-10,10)
         ax.set_ylim(0,0.5)
         plt.tight_layout()
-        ani.save('../../figures/animation.gif',fps=400)
+        if(save_animation):
+            ani.save('../../figures/animation.gif',fps=400)
         plt.show()
-    if animate:
+    if animater:
         animation()
-
-plot_time_evolution(timedependentPotential_creator(),True)
-sys.exit(1)
 def plot_Fourier():
     T=pi
     number_elements=1000
@@ -262,7 +252,7 @@ def plot_Fourier():
     dipole_moment_GHF=np.zeros(len(t),dtype=np.complex128)
     solver_RHF =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver_RHF.setC(np.eye(l));
-    solver_RHF.solve(1e-14,25)
+    solver_RHF.solve(1e-17,25)
     C=solver_RHF.get_full_C()
     solver_RHF =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver_RHF.setC(C);
@@ -276,7 +266,7 @@ def plot_Fourier():
         dipole_moment_RHF[i+1]=solver_RHF.getDipolemoment()
     solver_GHF =solver_RHF
     solver_GHF.setC(np.eye(2*l));
-    solver_GHF.solve(1e-14,5000)
+    solver_GHF.solve(1e-17,5000)
     solver_GHF.init_TDHF(total_Potential)
     overlap_GHF[0]=solver_GHF.calculate_overlap()
     dipole_moment_GHF[0]=solver_GHF.getDipolemoment()
@@ -308,4 +298,15 @@ def plot_Fourier():
     plt.savefig("../../figures/Fourier_spectrum.pdf")
     plt.show()
     print(freq[1]-freq[0])
+
+number_electrons=2;
+grid_length=20
+num_grid_points=2001
+omega=0.25 #Larger omega -> shorter period (interesting!)
+a=0.25
+l=20
+#plot_Comparison_HF(100)
+#plot_groundstate_densities()
+#plot_molecular_orbitals()
+plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
 plot_Fourier()

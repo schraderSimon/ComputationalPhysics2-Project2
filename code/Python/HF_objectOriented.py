@@ -300,13 +300,13 @@ def plot_Fourier():
     print(freq[1]-freq[0])
 
 number_electrons=2;
-grid_length=20
-num_grid_points=2001
+grid_length=10
+num_grid_points=1001
 omega=0.25 #Larger omega -> shorter period (interesting!)
 a=0.25
-l=20
-#plot_Comparison_HF(100)
-#plot_groundstate_densities()
-#plot_molecular_orbitals()
+l=10
+plot_Comparison_HF(100)
+plot_groundstate_densities()
+plot_molecular_orbitals()
 plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
 plot_Fourier()

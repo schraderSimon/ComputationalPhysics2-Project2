@@ -10,11 +10,13 @@ from numpy import sin, pi
 from GHFSolver import *
 np.set_printoptions(precision=1,linewidth=250)
 def wrapperFunction_creator(T=1*pi):
+    #Returns a function which returns 1 for t<T, zero otherwise
     def func(t):
         returnval=(t<T)#*sin(pi*t/T)**2 #looks like I do not need the extra stuff.
         return returnval
     return func
-def timedependentPotential_creator(somega=4,E=1):
+def timedependentPotential_creator(somega=2,E=1):
+    #Returns the time dependent laser with values for omega and E
     def func(t):
         return E*sin(somega*t)
     return func
@@ -228,18 +230,17 @@ def plot_time_evolution(time_potenial,animater=False,save_animation=False):
         ax.set_ylabel(r"Total electron density $\rho$")
         ax.set_xlim(-10,10)
         ax.set_ylim(0,0.5)
+        plt.legend()
         plt.tight_layout()
         if(save_animation):
             ani.save('../../figures/animation.gif',fps=400)
         plt.show()
     if animater:
         animation()
-def plot_Fourier():
-    T=pi
+def plot_Fourier(potential,T):
     number_elements=1000
     total_simulation_time=200*pi+T
     wrapperFunction=wrapperFunction_creator(T)
-    potential=timedependentPotential_creator()
     total_Potential=total_Potential_creator(wrapperFunction,potential)
     throwaway=int((number_elements)*T/total_simulation_time)+1
     if throwaway%2==1:
@@ -305,8 +306,8 @@ num_grid_points=1001
 omega=0.25 #Larger omega -> shorter period (interesting!)
 a=0.25
 l=10
-plot_Comparison_HF(100)
-plot_groundstate_densities()
-plot_molecular_orbitals()
+#plot_Comparison_HF(100)
+#plot_groundstate_densities()
+#plot_molecular_orbitals()
 plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
-plot_Fourier()
+#plot_Fourier(timedependentPotential_creator(somega=2,E=1),pi)

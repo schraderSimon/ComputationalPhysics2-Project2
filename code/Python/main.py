@@ -251,6 +251,8 @@ def plot_Fourier(potential,T):
     dipole_moment_RHF=np.zeros(len(t),dtype=np.complex128)
     overlap_GHF=np.zeros(len(t))
     dipole_moment_GHF=np.zeros(len(t),dtype=np.complex128)
+    autocorrelation_RHF=np.zeros(len(t),dtype=np.complex128)
+    autocorrelation_GHF=np.zeros(len(t),dtype=np.complex128)
     solver_RHF =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver_RHF.setC(np.eye(l));
     solver_RHF.solve(1e-17,25)
@@ -261,20 +263,40 @@ def plot_Fourier(potential,T):
     solver_RHF.init_TDHF(total_Potential)
     overlap_RHF[0]=solver_RHF.calculate_overlap()
     dipole_moment_RHF[0]=solver_RHF.getDipolemoment()
+    counter=0
     for i,tval in enumerate(t[:-1]):
-        solver_RHF.integrate(dt) #Integrate a step dt
+        if tval+dt>=T and counter==0:
+            pass
+            step=T-tval
+            solver_RHF.integrate(step)
+            solver_RHF.update_C0()
+            counter+=1
+            solver_RHF.integrate(dt-step)
+        else:
+            solver_RHF.integrate(dt) #Integrate a step dt
         overlap_RHF[i+1]=solver_RHF.calculate_overlap()
         dipole_moment_RHF[i+1]=solver_RHF.getDipolemoment()
+        autocorrelation_RHF[i+1]=solver_RHF.autocorrelation()
     solver_GHF =solver_RHF
     solver_GHF.setC(np.eye(2*l));
     solver_GHF.solve(1e-17,5000)
     solver_GHF.init_TDHF(total_Potential)
     overlap_GHF[0]=solver_GHF.calculate_overlap()
     dipole_moment_GHF[0]=solver_GHF.getDipolemoment()
+    counter=0
     for i,tval in enumerate(t[:-1]):
-        solver_GHF.integrate(dt) #Integrate a step dt
+        if tval+dt>=T and counter==0:
+            step=T-tval
+            solver_GHF.integrate(step)
+            solver_GHF.update_C0()
+
+            counter+=1
+            solver_GHF.integrate(dt-step)
+        else:
+            solver_GHF.integrate(dt) #Integrate a step dt
         overlap_GHF[i+1]=solver_GHF.calculate_overlap()
         dipole_moment_GHF[i+1]=solver_GHF.getDipolemoment()
+        autocorrelation_GHF[i+1]=solver_GHF.autocorrelation()
     sns.set_style("darkgrid")
     sns.set_context("talk")
     plt.plot(t/pi,dipole_moment_RHF,label="RHF",zorder=5)
@@ -298,6 +320,20 @@ def plot_Fourier(potential,T):
     plt.tight_layout()
     plt.savefig("../../figures/Fourier_spectrum.pdf")
     plt.show()
+    #sp_RHF=np.split(np.fft.fft(autocorrelation_RHF[throwaway:]),2)[0]
+    #sp_GHF=np.split(np.fft.fft(autocorrelation_GHF[throwaway:]),2)[0]
+    sp_RHF=np.split(np.fft.fft(overlap_RHF[throwaway:]),2)[0]
+    sp_GHF=np.split(np.fft.fft(overlap_GHF[throwaway:]),2)[0]
+    freq=np.split(np.fft.fftfreq(len(dipole_moment_RHF[throwaway:]),d=dt),2)[0]*(2*pi) #2pi to go from frequency to angular frequency
+    plt.plot(freq,np.abs(sp_RHF)/np.max(np.abs(sp_GHF)),label="RHF",zorder=5)
+    plt.plot(freq,np.abs(sp_GHF)/np.max(np.abs(sp_GHF)),label="GHF",zorder=3)
+    plt.xlim(-0.05,3)
+    plt.xlabel(r"Angular frequency")
+    plt.ylabel("Relative intensity")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("../../figures/autocorrelation.pdf")
+    plt.show()
     print(freq[1]-freq[0])
 
 number_electrons=2;
@@ -309,5 +345,5 @@ l=10
 #plot_Comparison_HF(100)
 #plot_groundstate_densities()
 #plot_molecular_orbitals()
-plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
-#plot_Fourier(timedependentPotential_creator(somega=2,E=1),pi)
+#plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
+plot_Fourier(timedependentPotential_creator(somega=2,E=1),pi)

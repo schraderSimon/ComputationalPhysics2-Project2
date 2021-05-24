@@ -71,8 +71,8 @@ class GHFSolverSystem(object):
         Calculate matrix containing dipoles in the basis set
     get_dipole_moment()
         Calculate the dipole moment
-    reset_time()
-        Revert time evolution
+    update_C0():
+        Set C0 to C
     '''
     def __init__(self,number_electrons=2,number_basisfunctions=10,
                 grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
@@ -197,7 +197,10 @@ class GHFSolverSystem(object):
         occupied_0=self.C0[:,0:2] #Two electrons
         occupied_1=self.C[:,0:2] #Two electrons
         return np.linalg.det(np.conj(occupied_1).T@occupied_0)
-
+    def autocorrelation_evolvedstate(self,C_T):
+        occupied_0=self.C0[:,0:2] #Two electrons
+        occupied_1=C_T[:,0:2] #Two electrons
+        return np.linalg.det(np.conj(occupied_1).T@occupied_0)
     def calculate_overlap(self):
         """Calculate time-dependent overlap"""
         return np.abs(self.autocorrelation())**2
@@ -221,12 +224,9 @@ class GHFSolverSystem(object):
         M=self.get_dipole_matrix()
         return -np.einsum("mn,nm->",P,M) #formula for calculation
 
-    def reset_time(self):
-        """Reset system"""
-        self.C=self.C0 #Reset C
-        self.setUpIntegrator() #Create new integrator
-        print("test")
-
+    def update_C0(self):
+        """Update C0 to C"""
+        self.C0=self.C
 class RHFSolverSystem(GHFSolverSystem):
     """A restricted HF solver
 

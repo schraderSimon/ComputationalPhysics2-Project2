@@ -29,9 +29,9 @@ end
 
 
 function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
-        lattice_length::Float64=20.0, lattice_points::Int64=2001, orbitals::Int64=20, threshold::Float64=0.1^6, iterations::Int64=10^6,
+        lattice_length::Float64=20.0, lattice_points::Int64=2001, orbitals::Int64=20, threshold::Float64=0.1^8, iterations::Int64=10^8,
         text_output="full",plot_output="none")
-    # finds an approximation to the ground state energy and system orbitals of the given harmonic laser trap
+    # finds an approximation to the ground state energy and molecular orbitals of the given harmonic laser trap
     # by setting up a discretised and truncated one-body trap with the given number of orbitals using the quantum_systems package,
     # and then performing Hartree-Fock iteration until the given convergence threshold.
 
@@ -85,13 +85,13 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     L::Float64 = trap.L # is the amplitude of the laser field acting on the particles.
     λ::Float64 = trap.λ # is the relative frequency of the laser field acting on the particles.
 
-    l::Int64 = orbitals # is the number of orbitals to be included in the Hartree-Fock calculation.
+    M::Int64 = orbitals # is the number of orbitals to be included in the Hartree-Fock calculation.
 
     if text_output == "full"
         println("Calculating atomic orbital quantities using the quantum_systems package ...")
     end
     _U = qs.ODQD.HOPotential(omega=ω)
-    odqd = qs.ODQD(Int(l/2),lattice_length/2;num_grid_points=lattice_points,alpha=1.0,a=a,potential=_U)
+    odqd = qs.ODQD(Int(M/2),lattice_length/2;num_grid_points=lattice_points,alpha=1.0,a=a,potential=_U)
     odqd = qs.GeneralOrbitalSystem(2,odqd)
     χ = odqd.spf # are the atomic orbitals (in discretised position basis).
     h = odqd.h # is the one-body Hamiltonian matrix (in atomic orbital basis).
@@ -106,14 +106,11 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     # VARIABLES:
 
-    C::Matrix{ComplexF64} = I(l) # is the coefficient matrix for the system orbitals (in atomic orbital basis).
-    P::Matrix{ComplexF64} = zeros(l,l) # is the density matrix for the system orbitals.
+    C::Matrix{ComplexF64} = zeros(M,2) # is the coefficient matrix for the molecular orbitals (in atomic orbital basis).
+    P::Matrix{ComplexF64} = zeros(M,M) # is the density matrix for the molecular orbitals.
+    F::Matrix{ComplexF64} = zeros(M,M) # is the Fock matrix for the molecular orbitals (in atomic orbital basis).
 
-    F::Matrix{ComplexF64} = zeros(l,l) # is the Fock matrix for the system orbitals (in atomic orbital basis).
-    ε::Vector{ComplexF64} = zeros(l) # is the vector of Fock eigenvalues for the system orbitals.
-    E::Diagonal{ComplexF64} = Diagonal(ε) # is the Fock eigenmatrix for the system orbitals.
-
-    G::Float64 = 0.0 # is the to be calculated approximate ground state energy of the system.
+    E::Float64 = 0.0 # is the to be calculated approximate ground state energy of the system.
 
     ρ::Vector{Float64} = zeros(lattice_points) # is the (discretised) spatial spatial density.
 
@@ -121,49 +118,39 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     # FUNCTIONS:
 
-    function find_system_orbitals!()
+    function find_molecular_orbitals!()
         # finds an approximation to the coefficient matrix through Hartree-Fock iteration.
 
         function update_P!()
             # updates the density matrix based on current coefficient matrix.
-            P = zeros(l,l)
-            for j in 1:l , i in 1:l
-                for k in 1:2
-                    P[i,j] += C[i,k]*C[j,k]'
-                end
-            end
-        end
-
-        function update_E!()
-            # updates the Fock eigenmatrix based on the current Fock eigenvalues.
-            E = Diagonal(ε)
+            P = C*C'
         end
 
         function update_F!()
             # updates the Fock matrix based on the current density matrix.
             F = h
-            for j in 1:l , i in 1:l
+            for j in 1:M , i in 1:M
                 F += P[i,j]*u[:,j,:,i]
             end
         end
 
-        update_P!()
-        update_F!()
         if text_output == "full"
-            println("Finding the system orbitals using Hartree-Fock iteration ...")
+            println("Finding the molecular orbitals using Hartree-Fock iteration ...")
         end
+        C = I(M)[1:M,1:2] # sets a cropped identity matrix as the initial guess for the coefficients.
         for i in 1:iterations
-            ε , C = eigen(F)
             update_P!()
-            update_E!()
             update_F!()
-            if maximum(abs2.(F*C-C*E)) < threshold^2
+            if maximum(abs2.(F*P-P*F)) < threshold^2 && maximum(abs2.(C'*C-I(2))) < threshold^2
+                # checks whether convergence of the Roothaan-Hall equation has been reached,
+                # and assures that the molecular orbitals are orthonormal.
                 if text_output == "full"
                     println("System orbitals found after ",i," iterations!")
                     println()
                 end
                 return
             end
+            C = eigvecs(F)[1:M,1:2]
         end
         println("– Warning: The Hartree-Fock algorithm did not converge even after ",iterations," iterations! –")
         println()
@@ -171,14 +158,14 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     function calculate_HF_energy!()
         # calculates the Hartree-Fock approximate ground state energy of the system.
-        G = 0.0
-        for i in 1:l , j in 1:l
-            G += P[j,i]*h[i,j]
+        E = 0.0
+        for i in 1:M , j in 1:M
+            E += P[i,j]*h[j,i]
             tmp = 0.0
-            for m in 1:l , n in 1:l
-                tmp += P[m,i]*P[n,j]*u[i,j,m,n]
+            for k in 1:M , l in 1:M
+                tmp += P[k,l]*u[j,l,i,k]
             end
-            G += tmp/2
+            E += 1/2*P[i,j]*tmp
         end
     end
 
@@ -186,7 +173,7 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         # calculates the (discretised) spatial particle density of the system.
         ρ = zeros(lattice_points)
         for n in 1:lattice_points
-            for i in 1:2:l , j in 1:2:l
+            for i in 1:2:M , j in 1:2:M
                 ρ[n] += χ[i,n]'*P[i,j]*χ[j,n]
                 ρ[n] += χ[i+1,n]'*P[i+1,j+1]*χ[j+1,n]
             end
@@ -198,7 +185,7 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         figure(figsize=(8,6))
         title("Atomic orbitals of a 1D harmonic laser trap with 2 electrons"*"\n")
         plot(lattice,_U(lattice);color="#fdce0b")
-        for i in 1:2:l
+        for i in 1:2:M
             plot(lattice,abs2.(χ[i,:]).+real(h[i,i]); label=raw"$\chi_{"*string(i)*raw"}$ & $\chi_{"*string(i+1)*raw"}$")
         end
         grid()
@@ -227,7 +214,7 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     if plot_output == "atomic orbitals"
         plot_atomic_orbitals()
     end
-    find_system_orbitals!()
+    find_molecular_orbitals!()
     calculate_HF_energy!()
     if plot_output == "spatial density"
         calculate_spatial_density!()
@@ -237,12 +224,12 @@ function find_HF_energy(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     # FINAL OUTPUT
     if text_output != "none"
-        println("HF energy: ",round(G;digits=6))
+        println("HF energy: ",round(E;digits=6))
         println()
     end
 
 
-    return G
+    return E
 end
 
 ; # suppresses inclusion output.

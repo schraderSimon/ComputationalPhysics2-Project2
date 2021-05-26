@@ -315,7 +315,7 @@ def plot_Fourier(potential,T):
     plt.xlim(0,1.0)
     plt.xlabel(r"Angular frequency")
     plt.ylabel("Relative intensity")
-
+    plt.title("Dipole moment")
     plt.legend()
     plt.tight_layout()
     plt.savefig("../../figures/Fourier_spectrum.pdf")
@@ -330,9 +330,10 @@ def plot_Fourier(potential,T):
     plt.xlim(-0.05,3)
     plt.xlabel(r"Angular frequency")
     plt.ylabel("Relative intensity")
+    plt.title("Overlap")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("../../figures/autocorrelation.pdf")
+    plt.savefig("../../figures/overlap_Fourier.pdf")
     plt.show()
     print(freq[1]-freq[0])
 

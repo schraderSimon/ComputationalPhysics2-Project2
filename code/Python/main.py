@@ -10,22 +10,24 @@ from numpy import sin, pi
 from GHFSolver import *
 np.set_printoptions(precision=1,linewidth=250)
 def wrapperFunction_creator(T=1*pi):
-    #Returns a function which returns 1 for t<T, zero otherwise
+    """Returns a function which returns 1 for t<T, zero otherwise"""
     def func(t):
-        returnval=(t<T)#*sin(pi*t/T)**2 #looks like I do not need the extra stuff.
+        returnval=(t<T) # zero for t>T, 1 otherwise.
         return returnval
     return func
 def timedependentPotential_creator(somega=2,E=1):
-    #Returns the time dependent laser with values for omega and E
+    """Returns the time dependent laser with values for omega and E"""
     def func(t):
         return E*sin(somega*t)
     return func
 def total_Potential_creator(wrapper,potential):
+    """Combines two functions of one parameter"""
     def func(t):
         return wrapper(t)*potential(t)
     return func
 
 def plot_Comparison_HF(amount):
+    """Plot energy as function of SCF iterations"""
     energy_RHF=np.zeros(amount)
     energy_GHF=np.zeros(amount)
     solver=RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
@@ -53,6 +55,7 @@ def plot_Comparison_HF(amount):
     plt.show()
 
 def plot_groundstate_densities():
+    """Plot electron density of ground states"""
     solver =RHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(l));
     solver.solve(1e-17,25)
@@ -85,6 +88,7 @@ def plot_groundstate_densities():
     plt.show()
 
 def plot_molecular_orbitals():
+    """Plot Molecular orbitals for both systems in two coordinate systems"""
     colors=["blue","orange","green","red"]
     potential=ODQD.HOPotential(omega=omega)
     sns.set_style("darkgrid")
@@ -99,7 +103,7 @@ def plot_molecular_orbitals():
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(C);
     densities=solver.getDensity()
-    eigenvalues=solver.epsilon
+    eigenvalues=solver.epsilon #Eigenvalue of molecular orbital
     for i in range(0,4,1):
         ax1.axhline(eigenvalues[i].real,linestyle="--",color=colors[i])
         ax1.plot(
@@ -111,7 +115,7 @@ def plot_molecular_orbitals():
     solver.setC(np.eye(2*l));
     solver.solve(1e-17,5000)
     densities=solver.getDensity()
-    eigenvalues=solver.epsilon
+    eigenvalues=solver.epsilon #Eigenvalue of molecular orbital
     for i in range(0,4,1):
         ax2.axhline(eigenvalues[i].real,linestyle="--",color=colors[i])
         ax2.plot(
@@ -135,6 +139,7 @@ def plot_molecular_orbitals():
     plt.show()
 
 def plot_time_evolution(time_potenial,animater=False,save_animation=False):
+    """Plot overlap and dipole moment as function of time"""
     sns.set_style("darkgrid")
     sns.set_context("talk")
     fig, ax = plt.subplots(figsize=(16, 4))
@@ -205,6 +210,7 @@ def plot_time_evolution(time_potenial,animater=False,save_animation=False):
     plt.savefig("../../figures/TDDipolemoment_laser.pdf")
     plt.show()
     def animation():
+        """Animates the GHF and the RHF solution"""
         import matplotlib.animation as animation
         fig, ax = plt.subplots()
         line0, = ax.plot(grid, np.sin(grid),label="RHF")
@@ -238,6 +244,7 @@ def plot_time_evolution(time_potenial,animater=False,save_animation=False):
     if animater:
         animation()
 def plot_Fourier(potential,T):
+    """Plot Fourier series for the overlap & the dipole moment"""
     number_elements=1000
     total_simulation_time=200*pi+T
     wrapperFunction=wrapperFunction_creator(T)
@@ -343,8 +350,8 @@ num_grid_points=1001
 omega=0.25 #Larger omega -> shorter period (interesting!)
 a=0.25
 l=10
-#plot_Comparison_HF(100)
-#plot_groundstate_densities()
-#plot_molecular_orbitals()
-#plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
+plot_Comparison_HF(100)
+plot_groundstate_densities()
+plot_molecular_orbitals()
+plot_time_evolution(timedependentPotential_creator(somega=2,E=1),animater=True,save_animation=True)
 plot_Fourier(timedependentPotential_creator(somega=2,E=1),pi)

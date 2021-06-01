@@ -11,17 +11,20 @@ struct HarmonicLaserTrap1D2 # is a struct for 1-dimensional harmonic laser trap 
     a::Float64 # is the shielding of the Coulomb interaction between the particles.
     L::Float64 # is the amplitude of the laser field acting on the particles.
     λ::Float64 # is the relative frequency of the laser field acting on the particles.
+    T::Float64 # is the point in time at which the is turned off.
 end
+HarmonicLaserTrap1D2(ω,a,L,λ) = HarmonicLaserTrap1D2(ω,a,L,λ,2pi/(λ*ω))
 HarmonicLaserTrap1D2() = HarmonicLaserTrap1D2(0.25,0.25,1.0,8.0)
 
 function system_parameters(trap::HarmonicLaserTrap1D2;type="slashes")::String
     # returns a string of the harmonic laser trap parameters.
     if type == "slashes"
         return string("ω = ",round(trap.ω;digits=4)," / a = ",round(trap.a;digits=4),
-            " / L = ",round(trap.L;digits=4)," / λ = ",round(trap.λ;digits=4))
+            " / L = ",round(trap.L;digits=4)," / λ = ",round(trap.λ;digits=4)," / T = ",round(trap.T;digits=4))
     elseif type == "breaks"
         return "\n"*join((string(raw"$\omega = ",round(trap.ω;digits=4),raw"$"),string(raw"$a = ",round(trap.a;digits=4),raw"$"),
-            string(raw"$L = ",round(trap.L;digits=4),raw"$"),string(raw"$\lambda = ",round(trap.λ;digits=4),raw"$")),"\n")*"\n"
+            string(raw"$L = ",round(trap.L;digits=4),raw"$"),string(raw"$\lambda = ",round(trap.λ;digits=4),raw"$"),
+            string(raw"$T = ",round(trap.T;digits=4)),raw"$"),"\n")*"\n"
     else
         return ""
     end
@@ -44,12 +47,6 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     if trap.a < 0
         error("Invalid value of the parameter a. The interaction shielding must be positive.")
     end
-    if trap.L < 0
-        error("Invalid value of the parameter L. The laser field amplitude must be positive.")
-    end
-    if trap.λ < 0
-        error("Invalid value of the parameter λ. The relative frequency of the laser field must be positive.")
-    end
 
     if orbitals < 2 || orbitals%2 == 1
         error("Invalid number of orbitals. Provide an even number above zero.")
@@ -71,7 +68,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         println("Finding the Hartree-Fock approximate ground state of a 1-dimensional harmonic laser trap with 2 electrons.")
         println()
         println("System parameters: "*system_parameters(trap))
-        println("Algorithm specifics: ",orbitals," orbitals / ",
+        println("Algorithm specifics: ",orbitals," atomic orbitals / ",
             "Convergence threshold 0.1^",round(Int,-log10(threshold))," / Max ",iterations," iterations")
         println()
     end
@@ -81,8 +78,6 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     ω::Float64 = trap.ω # is the strength of the harmonic trap potergy.
     a::Float64 = trap.a # is the shielding of the Coulomb interaction between the particles.
-    L::Float64 = trap.L # is the amplitude of the laser field acting on the particles.
-    λ::Float64 = trap.λ # is the relative frequency of the laser field acting on the particles.
 
     M::Int64 = orbitals # is the number of orbitals to be included in the Hartree-Fock calculation.
 
@@ -109,7 +104,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     P::Matrix{ComplexF64} = zeros(M,M) # is the density matrix for the molecular orbitals.
     F::Matrix{ComplexF64} = zeros(M,M) # is the Fock matrix for the molecular orbitals (in atomic orbital basis).
 
-    E::Float64 = 0. # is the to be calculated approximate ground state energy of the system.
+    E::Float64 = 0. # is the to-be-calculated approximate ground state energy of the system.
 
     ρ::Vector{Float64} = zeros(lattice_points) # is the (discretised) spatial spatial density.
 
@@ -230,10 +225,10 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     end
 
 
-    return E,P,χ,h,u,x
+    return E,C,χ,h,u,x
 end
 
-function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δt::Float64=100., resolution::Int64=1000,
+function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δt::Float64=201*trap.T, resolution::Int64=1000,
         text_output="full", plot_output="none")
     # finds an approximation to the ground state time evolution of the given harmonic laser trap
     # by setting up a discretised and truncated one-body trap with the given number of orbitals using the quantum_systems package,
@@ -242,17 +237,14 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
 
     # ASSERTIONS:
 
-    if trap.ω < 0
-        error("Invalid value of the parameter ω. The trap strength must be positive.")
-    end
-    if trap.a < 0
-        error("Invalid value of the parameter a. The interaction shielding must be positive.")
-    end
     if trap.L < 0
         error("Invalid value of the parameter L. The laser field amplitude must be positive.")
     end
     if trap.λ < 0
         error("Invalid value of the parameter λ. The relative frequency of the laser field must be positive.")
+    end
+    if trap.T < 0
+        error("Invalid value of the parameter T. The laser turn-off time must be positive or infinity.")
     end
 
     if text_output ∉ ("full","some","none")
@@ -269,41 +261,44 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
     ω::Float64 = trap.ω # is the strength of the harmonic trap potergy.
     L::Float64 = trap.L # is the amplitude of the laser field acting on the particles.
     λ::Float64 = trap.λ # is the relative frequency of the laser field acting on the particles.
+    T::Float64 = trap.T # is the point in time at which the laser is turned off.
 
-    E0,P0,χ,h,u,x = find_HF_state(trap;text_output=text_output)
-        # are the density matrix and energy of the initial Hartree-Fock ground state,
+    E0,C0,χ,h,u,x = find_HF_state(trap;text_output=text_output)
+        # are the energy and coefficient matrix of the initial Hartree-Fock ground state,
         # the atomic orbitals in (discretised spatial) basis, as well as the one-body Hamiltonian matrix,
         # the two-body (anti-symmetrised) Coulomb interaction matrix and the one-body position matrix, all in atomic orbital basis.
 
     M,_ = size(χ) # is the number of orbitals to be included in the Hartree-Fock calculations.
 
-    parameters = (ω,L,λ,h,u,x) # are the parameters involved for the time evolution.
+    parameters = (ω,L,λ,T,h,u,x) # are the parameters involved for the time evolution.
 
     ts::Vector{Float64} = range(0.,Δt;length=resolution) # is the time lattice on which to plot the evolution observables.
 
 
     # VARIABLES:
 
-    Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to be calculated density matrix evolution of the system.
-    Es::Vector{ComplexF64} = zeros(resolution) # is the to be calculated energy evolution of the system.
+    Cs::Vector{Matrix{ComplexF64}} = [zeros(M,2) for n in 1:resolution] # is the to-be-calculated
+    Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to-be-calculated density matrix evolution of the system.
+    Es::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated energy evolution of the system.
 
     tmpf::ComplexF64 = 0. # (is a temporary float.)
 
 
     # FUNCTIONS:
 
-    function evolve_P!(∂tP,P,parameters,t)
-        ω,L,λ,h,u,x = parameters
+    function evolve_C!(∂tC,C,parameters,t)
+        ω,L,λ,T,h,u,x = parameters
 
+        P = C*C'
         F = h
-        if t < 10.
+        if t < T
             F -= x*L*sin(2pi*t)
         end
         for b in 1:M , a in 1:M
             F += P[a,b]*u[:,b,:,a]
         end
 
-        ∂tP = im*(2pi/(λ*ω))*(P*F-F*P)
+        ∂tC = im*F*C
     end
 
     function plot_energy!()
@@ -320,9 +315,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         end
         figure(figsize=(8,6))
         title("Expected energy of a 1D harmonic laser trap with 2 electrons"*"\n")
-        plot(ts,real.(Es);color="#fdce0b")
-        plot(ts,imag.(Es);linestyle="dotted",color="#fdce0b")
-        xlabel(raw"$t$ $\left[\frac{2\pi\hbar^3}{m\lambda\omega}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        plot(λ*ω/2pi*ts,real.(Es);color="#fdce0b")
+        plot(λ*ω/2pi*ts,imag.(Es);linestyle="dotted",color="#fdce0b")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\frac{\hbar^3}{m}\left[\left(\frac{4πϵ}{e^2}\right)^2\right]$")
         ylabel(raw"$\langle E \rangle$ $\left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
     end
 
@@ -330,9 +325,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         # calculates and plots the density sum of the system.
         figure(figsize=(8,6))
         title("Density sum of a 1D harmonic laser trap with 2 electrons"*"\n")
-        plot(ts,[real(sum(Ps[n])) for n in 1:resolution];color="#abcdef")
-        plot(ts,[imag(sum(Ps[n])) for n in 1:resolution];linestyle="dotted",color="#abcdef")
-        xlabel(raw"$t$ $\left[\frac{2\pi\hbar^3}{m\lambda\omega}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        plot(λ*ω/2pi*ts,[real(sum(Ps[n])) for n in 1:resolution];color="#abcdef")
+        plot(λ*ω/2pi*ts,[imag(sum(Ps[n])) for n in 1:resolution];linestyle="dotted",color="#abcdef")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
     end
 
 
@@ -340,11 +335,12 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
 
     if text_output != "none"
         println()
-        println("Evolving the Hartree-Fock approximate ground state from t = 0.0 to t = ",round(Δt;digits=2)," ...")
+        println("Evolving the Hartree-Fock approximate ground state from t = 0.00 to t = ",round(Δt;digits=2)," ...")
     end
-    ∂tP_function = ODEProblem(evolve_P!,P0,(0.,Δt),parameters)
-    P_evolution = solve(∂tP_function)
-    Ps = [P_evolution(ts[n]) for n in 1:resolution]
+    ∂tC_function = ODEProblem(evolve_C!,C0,(0.,Δt),parameters)
+    C_evolution = solve(∂tC_function)
+    Cs = [C_evolution(ts[n]) for n in 1:resolution]
+    Ps = [Cs[n]*Cs[n]' for n in 1:resolution]
     if text_output != "none"
         println("Evolution calculated and stored!")
         println()
@@ -360,8 +356,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         println()
     end
 
-
-    return Ps,χ,h,u,x
+    return Cs,χ,h,u,x
 end
 
 ; # suppresses inclusion output.

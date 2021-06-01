@@ -284,6 +284,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to-be-calculated density matrix evolution of the system.
     overlaps::Vector{Float64} = zeros(resolution) # is the to-be-calculated overlap between the system state and the initial (HF) state.
     Es::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated energy evolution of the system.
+    Ds::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated dipole moment evolution of the system.
 
     tmpf::ComplexF64 = 0. # (is a temporary float.)
 
@@ -306,7 +307,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     end
 
     function calculate_n_plot_overlap!()
-        # calculates and plots the overlap between the state of the system and the initial (HF) state.
+        # calculates and plots the overlap between the evolving state of the system and the initial (HF) state.
         overlaps = [abs2(det(Cs[1]'*Cs[n])) for n in 1:resolution]
         figure(figsize=(8,6))
         title("Overlap of a 1D harmonic laser trap with 2 electrons"*"\n")
@@ -335,6 +336,21 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         ylabel(raw"$E \quad \left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
     end
 
+    function calculate_n_plot_dipole_moment!()
+        # calculates and plots the dipole moment evolution of the system.
+        for n in 1:resolution
+            for a in 1:M , b in 1:M
+                Ds[n] -= Ps[n][a,b]*x[b,a]
+            end
+        end
+        figure(figsize=(8,6))
+        title("Expected dipole moment of a 1D harmonic laser trap with 2 electrons"*"\n")
+        plot(λ*ω/2pi*ts,real.(Ds);color="#ff750a")
+        plot(λ*ω/2pi*ts,imag.(Ds);linestyle="dotted",color="#ff750a")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        ylabel(raw"$D \quad \left[\frac{4\pi\epsilon\hbar^2}{me}\right]$")
+    end
+
 
     # EXECUTIONS:
 
@@ -345,14 +361,6 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     ∂tC_function = ODEProblem(evolve_C!,C0,(0.,Δt),parameters)
     C_evolution = solve(∂tC_function)
     Cs = [C_evolution(ts[n]) for n in 1:resolution]
-    println("HF ground state C:")
-    display(C0)
-    println()
-    println("Initial C:")
-    display(Cs[1])
-    println("Final C:")
-    display(Cs[resolution])
-    println()
     if text_output != "none"
         println("Evolution calculated and stored!")
         println()
@@ -363,9 +371,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         Ps = [Cs[n]*Cs[n]' for n in 1:resolution]
         println("Calculating and plotting ",plot_output," ...")
         if plot_output == "energy"
-            calculate_n_plot_energy()
+            calculate_n_plot_energy!()
         elseif plot_output == "dipole moment"
-
+            calculate_n_plot_dipole_moment!()
         end
     end
     println("Done! You are welcome.")

@@ -282,7 +282,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     Cs::Vector{Matrix{ComplexF64}} = [zeros(M,2) for n in 1:resolution] # is the to-be-calculated
     Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to-be-calculated density matrix evolution of the system.
-    overlaps::Vector{Float64} = zeros(resolution) # is the to-be-calculated overlap between the system state and the initial (HF) state.
+    Γs::Vector{Float64} = zeros(resolution) # is the to-be-calculated ground state fidelity evolution of the system.
     Es::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated energy evolution of the system.
     Ds::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated dipole moment evolution of the system.
 
@@ -306,14 +306,14 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         ∂tC = im*F*C
     end
 
-    function calculate_n_plot_overlap!()
-        # calculates and plots the overlap between the evolving state of the system and the initial (HF) state.
-        overlaps = [abs2(det(Cs[1]'*Cs[n])) for n in 1:resolution]
+    function calculate_n_plot_fidelity!()
+        # calculates and plots the ground state fidelity evolution of the system.
+        Γs = [abs2(det(Cs[1]'*Cs[n])) for n in 1:resolution]
         figure(figsize=(8,6))
-        title("Overlap of a 1D harmonic laser trap with 2 electrons"*"\n")
-        plot(λ*ω/2pi*ts,overlaps;color="#abcdef")
+        title("Ground state fidelity of a 1D harmonic laser trap with 2 electrons"*"\n")
+        plot(λ*ω/2pi*ts,Γs;color="#abcdef")
         xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
-        ylabel(raw"$\left|\langle\Phi_0|\Phi\rangle\right|^2$")
+        ylabel(raw"$\Gamma = \left|\langle\Phi_0|\Phi\rangle\right|^2$")
     end
 
     function calculate_n_plot_energy!()
@@ -365,8 +365,8 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         println("Evolution calculated and stored!")
         println()
     end
-    println("Calculating and plotting overlap ...")
-    calculate_n_plot_overlap!()
+    println("Calculating and plotting ground state fidelity ...")
+    calculate_n_plot_fidelity!()
     if plot_output != "none"
         Ps = [Cs[n]*Cs[n]' for n in 1:resolution]
         println("Calculating and plotting ",plot_output," ...")

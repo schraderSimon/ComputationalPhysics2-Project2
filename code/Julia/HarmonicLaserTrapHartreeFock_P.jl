@@ -129,7 +129,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
         println()
     end
 
-    algorithm_colour::String = (algorithm == "GHF" ? "#4aa888" : "#aa4888") # sets the colour of spatial density plots for this algorithm.
+    algorithm_colour::String = (algorithm == "GHF" ? "#4aa888" : "#aa4888") # sets the colour of spatial density plots for the given algorithm.
 
 
     # VARIABLES:
@@ -287,8 +287,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
         println()
     end
 
-
-    return E,C,χ,h,u,x
+    return E,P,χ,h,u,x
 end
 
 function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); particles::Int64 = 2,
@@ -336,7 +335,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
     λ::Float64 = trap.λ # is the relative frequency of the laser field acting on the particles.
     T::Float64 = trap.T # is the point in time at which the laser is turned off.
 
-    E0,C0,χ,h,u,x = find_HF_state(trap;particles=particles,
+    E0,P0,χ,h,u,x = find_HF_state(trap;particles=particles,
         orbitals=orbitals,lattice_length=lattice_length,lattice_points=lattice_points,
         algorithm=algorithm,iterations=iterations,threshold=threshold,text_output=text_output)
         # are the energy and coefficient matrix of the initial Hartree-Fock ground state,
@@ -353,16 +352,15 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
     parameters = (ω,L,λ,T,h,u,x,M,algorithm) # are the parameters involved for the time evolution.
 
     ts::Vector{Float64} = range(0.,Δt;length=time_resolution) # is the time lattice on which to plot the evolution observables.
+    algorithm_colour::String = (algorithm == "GHF" ? "#4aa888" : "#aa4888") # sets the colour of ground state fidelity plots for the given algorithm.
 
 
     # VARIABLES:
 
-    Cs::Vector{Matrix{ComplexF64}} = [zeros(M,N) for n in 1:time_resolution]
-        # is the to-be-calculated coefficient matrix evolution of the system.
     Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:time_resolution]
         # is the to-be-calculated density matrix evolution of the system.
 
-    Γs::Vector{Float64} = zeros(time_resolution) # is the to-be-calculated ground state fidelity evolution of the system.
+    Γs::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated ground state fidelity evolution of the system.
     Es::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated energy evolution of the system.
     Ds::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated dipole moment evolution of the system.
 
@@ -371,10 +369,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
 
     # FUNCTIONS:
 
-    function evolve_C!(∂tC,C,parameters,t)
+    function evolve_P!(∂tP,P,parameters,t)
         ω,L,λ,T,h,u,x,M,algorithm = parameters
 
-        P = C*C'
         F = h
         if t < T
             F -= x*L*sin(λ*ω*t)
@@ -389,16 +386,24 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
             end
         end
 
-        ∂tC .= im*F*C
+        ∂tP .= im*(P*F-F*P)
     end
 
     function calculate_n_plot_fidelity!()
         # calculates and plots the ground state fidelity evolution of the system.
-        Γs = [abs2(det(Cs[1]'*Cs[n])) for n in 1:time_resolution]
+        for n in 1:time_resolution
+            Γs[n] = 2*√(det(Ps[1])*det(Ps[n]))
+            tmpf = 0.
+            for a in 1:M , b in 1:M
+                tmpf += Ps[1][a,b]*Ps[n][b,a]
+            end
+            Γs[n] += tmpf
+        end
         figure(figsize=(8,6))
         title(algorithm*" ground state fidelity of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
-        plot(λ*ω/2pi*ts,Γs;color="#abcdef",label=raw"$\Gamma$")
+        plot(λ*ω/2pi*ts,real.(Γs);color=algorithm_colour,label=raw"$\Gamma$")
+        plot(λ*ω/2pi*ts,imag.(Γs);linestyle="dotted",color=algorithm_colour)
         xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
         ylabel(raw"$\Gamma = \left|\langle\Phi_0|\Phi\rangle\right|^2$")
         grid()
@@ -408,7 +413,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
         # calculates and plots the energy evolution of the system.
         for n in 1:time_resolution
             for a in 1:M , b in 1:M
-                Es[n] += Ps[n][a,b]*h[b,a]
+                Es[n] = Ps[n][a,b]*h[b,a]
                 tmpf = 0.0
                 for c in 1:M , d in 1:M
                     tmpf += Ps[n][c,d]*u[b,d,a,c]
@@ -456,9 +461,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
         println()
         println("Evolving the Hartree-Fock approximate ground state from t = 0.00 to t = ",round(Δt;digits=2)," ...")
     end
-    ∂tC_function = ODEProblem(evolve_C!,C0,(0.,Δt),parameters)
-    C_evolution = solve(∂tC_function)
-    Cs = [C_evolution(ts[n]) for n in 1:time_resolution]
+    ∂tP_function = ODEProblem(evolve_P!,P0,(0.,Δt),parameters)
+    P_evolution = solve(∂tP_function)
+    Ps = [P_evolution(ts[n]) for n in 1:time_resolution]
     if text_output != "none"
         println("Evolution calculated and stored!")
         println()
@@ -466,7 +471,6 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
     println("Calculating and plotting ground state fidelity ...")
     calculate_n_plot_fidelity!()
     if plot_output != "none"
-        Ps = [Cs[n]*Cs[n]' for n in 1:time_resolution]
         println("Calculating and plotting ",plot_output," ...")
         if plot_output == "energy"
             calculate_n_plot_energy!()
@@ -477,7 +481,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
     println("Done! You are welcome.")
     println()
 
-    return Γs,Cs,χ,h,u,x
+    return Γs,Ps,χ,h,u,x
 end
 
 ; # suppresses inclusion output.

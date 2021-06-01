@@ -33,7 +33,7 @@ end
 
 
 function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
-        lattice_length::Float64=20.0, lattice_points::Int64=2001, orbitals::Int64=20, threshold::Float64=0.1^8, iterations::Int64=10^8,
+        lattice_length::Float64=20.0, lattice_points::Int64=1001, orbitals::Int64=20, threshold::Float64=0.1^8, iterations::Int64=10^8,
         text_output::String="full",plot_output::String="none")
     # finds an approximation to the ground state of the given harmonic laser trap
     # by setting up a discretised and truncated one-body trap with the given number of orbitals using the quantum_systems package,
@@ -68,8 +68,10 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
         println("Finding the Hartree-Fock approximate ground state of a 1-dimensional harmonic laser trap with 2 electrons.")
         println()
         println("System parameters: "*system_parameters(trap))
-        println("Algorithm specifics: ",orbitals," atomic orbitals / ",
-            "Convergence threshold 0.1^",round(Int,-log10(threshold))," / Max ",iterations," iterations")
+        println("Algorithm specifics:")
+        println(orbitals," atomic orbitals ",
+        " / ",lattice_points," spatial lattice points from –",round(lattice_length/2;digits=1)," to ",round(lattice_length/2;digits=1),
+        " / Convergence threshold 0.1^",round(Int,-log10(threshold))," / Max ",iterations," iterations")
         println()
     end
 
@@ -228,8 +230,9 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
     return E,C,χ,h,u,x
 end
 
-function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δt::Float64=201*trap.T, resolution::Int64=1000,
-        text_output="full", plot_output="none")
+function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
+        Δt::Float64=(isinf(trap.T) ? 2*2pi/trap.ω : 2*trap.T), resolution::Int64=1000,
+        text_output::String="full", plot_output::String="none")
     # finds an approximation to the ground state time evolution of the given harmonic laser trap
     # by setting up a discretised and truncated one-body trap with the given number of orbitals using the quantum_systems package,
     # performing Hartree-Fock iteration to get an initial Hartree-Fock ground state and then evolving this ground state with
@@ -250,9 +253,9 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
     if text_output ∉ ("full","some","none")
         error("The text output choice '",text_output,"' is not known. Choose between 'full', 'some' and 'none'.")
     end
-    if plot_output ∉ ("energy","dipole moment","density sum","none")
+    if plot_output ∉ ("energy","dipole moment","none")
         error("The plot output choice '",plot_output,"' is not known. ",
-            "Choose between 'energy','dipole moment', 'density sum' and 'none'.")
+            "Choose between 'energy', 'dipole moment' and 'none'.")
     end
 
 
@@ -279,6 +282,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
 
     Cs::Vector{Matrix{ComplexF64}} = [zeros(M,2) for n in 1:resolution] # is the to-be-calculated
     Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to-be-calculated density matrix evolution of the system.
+    overlaps::Vector{Float64} = zeros(resolution) # is the to-be-calculated overlap between the system state and the initial (HF) state.
     Es::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated energy evolution of the system.
 
     tmpf::ComplexF64 = 0. # (is a temporary float.)
@@ -292,7 +296,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         P = C*C'
         F = h
         if t < T
-            F -= x*L*sin(2pi*t)
+            F -= x*L*sin(λ*ω*t)
         end
         for b in 1:M , a in 1:M
             F += P[a,b]*u[:,b,:,a]
@@ -301,7 +305,17 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         ∂tC = im*F*C
     end
 
-    function plot_energy!()
+    function calculate_n_plot_overlap!()
+        # calculates and plots the overlap between the state of the system and the initial (HF) state.
+        overlaps = [abs2(det(Cs[1]'*Cs[n])) for n in 1:resolution]
+        figure(figsize=(8,6))
+        title("Overlap of a 1D harmonic laser trap with 2 electrons"*"\n")
+        plot(λ*ω/2pi*ts,overlaps;color="#abcdef")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        ylabel(raw"$\left|\langle\Phi_0|\Phi\rangle\right|^2$")
+    end
+
+    function calculate_n_plot_energy!()
         # calculates and plots the energy evolution of the system.
         for n in 1:resolution
             for a in 1:M , b in 1:M
@@ -321,15 +335,6 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         ylabel(raw"$E \quad \left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
     end
 
-    function plot_density_sum!()
-        # calculates and plots the density sum of the system.
-        figure(figsize=(8,6))
-        title("Density sum of a 1D harmonic laser trap with 2 electrons"*"\n")
-        plot(λ*ω/2pi*ts,[real(sum(Ps[n])) for n in 1:resolution];color="#abcdef")
-        plot(λ*ω/2pi*ts,[imag(sum(Ps[n])) for n in 1:resolution];linestyle="dotted",color="#abcdef")
-        xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
-    end
-
 
     # EXECUTIONS:
 
@@ -340,23 +345,33 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
     ∂tC_function = ODEProblem(evolve_C!,C0,(0.,Δt),parameters)
     C_evolution = solve(∂tC_function)
     Cs = [C_evolution(ts[n]) for n in 1:resolution]
-    Ps = [Cs[n]*Cs[n]' for n in 1:resolution]
+    println("HF ground state C:")
+    display(C0)
+    println()
+    println("Initial C:")
+    display(Cs[1])
+    println("Final C:")
+    display(Cs[resolution])
+    println()
     if text_output != "none"
         println("Evolution calculated and stored!")
         println()
     end
+    println("Calculating and plotting overlap ...")
+    calculate_n_plot_overlap!()
     if plot_output != "none"
+        Ps = [Cs[n]*Cs[n]' for n in 1:resolution]
         println("Calculating and plotting ",plot_output," ...")
         if plot_output == "energy"
-            plot_energy!()
-        elseif plot_output == "density sum"
-            plot_density_sum!()
-        end
-        println("Done! You are welcome.")
-        println()
-    end
+            calculate_n_plot_energy()
+        elseif plot_output == "dipole moment"
 
-    return Cs,χ,h,u,x
+        end
+    end
+    println("Done! You are welcome.")
+    println()
+
+    return overlaps,Cs,χ,h,u,x
 end
 
 ; # suppresses inclusion output.

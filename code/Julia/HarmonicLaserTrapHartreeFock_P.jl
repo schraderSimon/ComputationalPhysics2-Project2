@@ -6,17 +6,17 @@ using PyPlot
 @pyimport quantum_systems as qs # imports the quantum_systems package for calculation of the atomic orbitals.
 
 
-struct HarmonicLaserTrap1D2 # is a struct for 1-dimensional harmonic laser trap systems with 2 particles.
+struct HarmonicLaserTrap1D # is a struct for 1-dimensional harmonic laser trap systems with 2 particles.
     ω::Float64 # is the strength of the harmonic trap potergy.
     a::Float64 # is the shielding of the Coulomb interaction between the particles.
     L::Float64 # is the amplitude of the laser field acting on the particles.
     λ::Float64 # is the relative frequency of the laser field acting on the particles.
     T::Float64 # is the point in time at which the is turned off.
 end
-HarmonicLaserTrap1D2(ω,a,L,λ) = HarmonicLaserTrap1D2(ω,a,L,λ,2pi/(λ*ω))
-HarmonicLaserTrap1D2() = HarmonicLaserTrap1D2(0.25,0.25,1.0,8.0)
+HarmonicLaserTrap1D(ω,a,L,λ) = HarmonicLaserTrap1D(ω,a,L,λ,2pi/(λ*ω))
+HarmonicLaserTrap1D() = HarmonicLaserTrap1D(0.25,0.25,1.0,8.0)
 
-function system_parameters(trap::HarmonicLaserTrap1D2;type="slashes")::String
+function system_parameters(trap::HarmonicLaserTrap1D;type="slashes")::String
     # returns a string of the harmonic laser trap parameters.
     if type == "slashes"
         return string("ω = ",round(trap.ω;digits=4)," / a = ",round(trap.a;digits=4),
@@ -32,7 +32,7 @@ end
 
 
 
-function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); particles::Int64 = 2,
+function find_HF_state(trap::HarmonicLaserTrap1D=HarmonicLaserTrap1D(); particles::Int64 = 2,
         orbitals::Int64 = 20, lattice_length::Float64=20.0, lattice_points::Int64=1001,
         algorithm::String="GHF", iterations::Int64=10^6, threshold::Float64=0.1^(algorithm == "GHF" ? 8 : 6),
         text_output::String="full",plot_output::String="none")
@@ -290,7 +290,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
     return E,P,χ,h,u,x
 end
 
-function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); particles::Int64 = 2,
+function find_HF_evolution(trap::HarmonicLaserTrap1D=HarmonicLaserTrap1D(); particles::Int64 = 2,
         orbitals::Int64 = 20, lattice_length::Float64=20.0, lattice_points::Int64=1001,
         algorithm::String="GHF", iterations::Int64=10^6, threshold::Float64=0.1^(algorithm == "GHF" ? 8 : 6),
         Δt::Float64= 2pi/trap.ω, time_resolution::Int64=1000,

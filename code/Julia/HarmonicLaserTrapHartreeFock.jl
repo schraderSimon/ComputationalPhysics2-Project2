@@ -317,8 +317,8 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         title("Expected energy of a 1D harmonic laser trap with 2 electrons"*"\n")
         plot(λ*ω/2pi*ts,real.(Es);color="#fdce0b")
         plot(λ*ω/2pi*ts,imag.(Es);linestyle="dotted",color="#fdce0b")
-        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
-        ylabel(raw"$\langle E \rangle$ $\left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        ylabel(raw"$E \quad \left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
     end
 
     function plot_density_sum!()
@@ -327,7 +327,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         title("Density sum of a 1D harmonic laser trap with 2 electrons"*"\n")
         plot(λ*ω/2pi*ts,[real(sum(Ps[n])) for n in 1:resolution];color="#abcdef")
         plot(λ*ω/2pi*ts,[imag(sum(Ps[n])) for n in 1:resolution];linestyle="dotted",color="#abcdef")
-        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
     end
 
 

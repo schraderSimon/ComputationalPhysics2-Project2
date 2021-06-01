@@ -8,7 +8,7 @@ import sys
 import seaborn as sns
 from numpy import sin, pi
 from GHFSolver import *
-np.set_printoptions(precision=1,linewidth=250)
+np.set_printoptions(precision=2,linewidth=250)
 def wrapperFunction_creator(T=1*pi):
     """Returns a function which returns 1 for t<T, zero otherwise"""
     def func(t):
@@ -35,7 +35,6 @@ def plot_Comparison_HF(amount):
     for i in range(amount):
         solver.solve(1e-17,1)
         energy_RHF[i]=solver.get_energy()
-        print(i,energy_RHF[i])
     solver =GHFSolverSystem(number_electrons,l,grid_length,num_grid_points,omega,a);
     solver.setC(np.eye(2*l));
     for i in range(amount):
@@ -104,6 +103,7 @@ def plot_molecular_orbitals():
     solver.setC(C);
     densities=solver.getDensity()
     eigenvalues=solver.epsilon #Eigenvalue of molecular orbital
+    print(eigenvalues)
     for i in range(0,4,1):
         ax1.axhline(eigenvalues[i].real,linestyle="--",color=colors[i])
         ax1.plot(
@@ -116,6 +116,7 @@ def plot_molecular_orbitals():
     solver.solve(1e-17,5000)
     densities=solver.getDensity()
     eigenvalues=solver.epsilon #Eigenvalue of molecular orbital
+    print(eigenvalues)
     for i in range(0,4,1):
         ax2.axhline(eigenvalues[i].real,linestyle="--",color=colors[i])
         ax2.plot(
@@ -349,7 +350,8 @@ grid_length=10
 num_grid_points=1001
 omega=0.25 #Larger omega -> shorter period (interesting!)
 a=0.25
-l=10
+M=10
+l=M
 plot_Comparison_HF(100)
 plot_groundstate_densities()
 plot_molecular_orbitals()

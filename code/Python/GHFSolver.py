@@ -8,7 +8,7 @@ class GHFSolverSystem(object):
 
     Attributes
     ---------
-    l : int
+    M : int
         number of basis functions (2 times the argument)
     grid_length: float
         length of grid to solve HO wave function numerically
@@ -77,7 +77,7 @@ class GHFSolverSystem(object):
     def __init__(self,number_electrons=2,number_basisfunctions=10,
                 grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
         """Initialize the system"""
-        self.l=2*number_basisfunctions #Hartree Fock basis is twice the number of basis functions
+        self.M=2*number_basisfunctions #Hartree Fock basis is twice the number of basis functions
         self.grid_length=grid_length
         self.num_grid_points=num_grid_points
         self.steplength=(grid_length*2)/(num_grid_points-1) #Step length for Numerical integration or similar
@@ -91,7 +91,7 @@ class GHFSolverSystem(object):
     def setC(self,C=None):
         """Initiate self.C-matrix and self.epsilon"""
         if C is None: #If C is none
-            self.C=np.array(np.random.rand(self.l,self.l),dtype=complex128) #Random matrix (not a legal coefficient matrix)
+            self.C=np.array(np.random.rand(self.M,self.M),dtype=complex128) #Random matrix (not a legal coefficient matrix)
         else:
             self.C=C
         P=self.construct_Density_matrix(self.C)
@@ -152,10 +152,10 @@ class GHFSolverSystem(object):
         spin_down=self.system.spf[1::2] #The atomic orbitals with spin down
         C_up=self.C[::2,:] #The coefficient matrix for spin up
         C_down=self.C[1::2,:] #The coefficient matrix for spin down
-        wf_up=np.zeros((self.l,self.num_grid_points),dtype=np.complex128) #The part of the wave function with spin up
-        wf_down=np.zeros((self.l,self.num_grid_points),dtype=np.complex128)#The part of the wave function with spin down
-        for i in range(self.l):
-            for k in range(int(self.l/2)):
+        wf_up=np.zeros((self.M,self.num_grid_points),dtype=np.complex128) #The part of the wave function with spin up
+        wf_down=np.zeros((self.M,self.num_grid_points),dtype=np.complex128)#The part of the wave function with spin down
+        for i in range(self.M):
+            for k in range(int(self.M/2)):
                 wf_up[i]+=(C_up[k,i]*spin_up[k])
                 wf_down[i]+=(C_down[k,i]*spin_down[k])
         densities=(np.abs(wf_up)**2+np.abs(wf_down)**2) #density is spin up density + spin down density
@@ -170,7 +170,7 @@ class GHFSolverSystem(object):
     def timeDependentFockMatrix(self,t,C):
         """Calculate the time dependent fock matrix"""
         if len(C.shape)==1: #If C is an array, transform to matrix
-            C=C.reshape((self.l,self.l))
+            C=C.reshape((self.M,self.M))
         P=self.construct_Density_matrix(C)
         F=self.construct_Fock_matrix(P)
         return F+self.system.position[0]*self.func(t)
@@ -178,7 +178,7 @@ class GHFSolverSystem(object):
     def RHS(self,t,C):
         """right hand side of the ODE, so dC/dT=RHS"""
         if len(C.shape)==1: #If C is an array, transform to matrix
-            C=C.reshape((self.l,self.l))
+            C=C.reshape((self.M,self.M))
         F=self.timeDependentFockMatrix(t,C)
         return -1j*np.ravel(F@C)
 
@@ -189,7 +189,7 @@ class GHFSolverSystem(object):
 
     def integrate(self,dt):
         """Evolve in time by a time step dt, update self.C"""
-        sol=self.integrator.integrate(self.integrator.t+dt).reshape((self.l,self.l))
+        sol=self.integrator.integrate(self.integrator.t+dt).reshape((self.M,self.M))
         self.C=sol
 
     def autocorrelation(self):
@@ -207,10 +207,10 @@ class GHFSolverSystem(object):
 
     def get_dipole_matrix(self):
         """Get position matrix"""
-        M=np.zeros((self.l,self.l),dtype=np.complex64)
+        M=np.zeros((self.M,self.M),dtype=np.complex64)
         xvals=np.linspace(-self.grid_length,self.grid_length,self.num_grid_points)
-        for i in range(self.l):
-            for k in range(self.l):
+        for i in range(self.M):
+            for k in range(self.M):
                 if (i%2 != k%2):
                     M[i,k]=0
                     continue
@@ -238,7 +238,7 @@ class RHFSolverSystem(GHFSolverSystem):
     """
     def __init__(self,number_electrons=2,number_basisfunctions=10,
                 grid_length=10,num_grid_points=1001,omega=0.25,a=0.25):
-        self.l=number_basisfunctions #Hartree Fock basis is twice the number of basis functions
+        self.M=number_basisfunctions #Hartree Fock basis is twice the number of basis functions
         self.grid_length=grid_length
         self.num_grid_points=num_grid_points
         self.steplength=(grid_length*2)/(num_grid_points-1) #Step length for Numerical integration or similar
@@ -260,9 +260,9 @@ class RHFSolverSystem(GHFSolverSystem):
 
     def get_full_C(self):
         """Return the full coefficient matrix in the spin-orbital basis"""
-        C=np.zeros((2*self.l,2*self.l),dtype=np.complex128)
-        for i in range(self.l):
-            for j in range(self.l):
+        C=np.zeros((2*self.M,2*self.M),dtype=np.complex128)
+        for i in range(self.M):
+            for j in range(self.M):
                 C[2*i,2*j]=self.C[i,j] #Same as RHS solution
                 C[2*i+1,2*j+1]=self.C[i,j]
         return C

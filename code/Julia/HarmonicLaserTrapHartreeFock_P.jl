@@ -362,7 +362,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
 
     Γs::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated ground state fidelity evolution of the system.
     Es::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated energy evolution of the system.
-    Ds::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated dipole moment evolution of the system.
+    ds::Vector{ComplexF64} = zeros(time_resolution) # is the to-be-calculated dipole moment evolution of the system.
 
     tmpf::ComplexF64 = 0. # (is a temporary float.)
 
@@ -438,17 +438,17 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
         # calculates and plots the dipole moment evolution of the system.
         for n in 1:time_resolution
             for a in 1:M , b in 1:M
-                Ds[n] -= Ps[n][a,b]*x[b,a]
+                ds[n] -= Ps[n][a,b]*x[b,a]
             end
             if algorithm == "RHF"
-                Ds *= 2
+                ds *= 2
             end
         end
         figure(figsize=(8,6))
         title(algorithm*" expected dipole moment of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
-        plot(λ*ω/2pi*ts,real.(Ds);color="#ff750a",label=raw"$D$")
-        plot(λ*ω/2pi*ts,imag.(Ds);linestyle="dotted",color="#ff750a")
+        plot(λ*ω/2pi*ts,real.(ds);color="#ff750a",label=raw"$D$")
+        plot(λ*ω/2pi*ts,imag.(ds);linestyle="dotted",color="#ff750a")
         xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
         ylabel(raw"$D \quad \left[\frac{4\pi\epsilon\hbar^2}{me}\right]$")
         grid()

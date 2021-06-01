@@ -112,9 +112,9 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
     end
     _U = qs.ODQD.HOPotential(omega=ω)
     odqd = qs.ODQD(Int(M/2),lattice_length/2;num_grid_points=lattice_points,alpha=1.0,a=a,potential=_U)
-    if algorithm == "GHF" # doubles the size of the atomic orbital basis and antisymmetrises the interaction matrix
+    if algorithm == "GHF" # adds spin to the atomic orbital basis and antisymmetrises the interaction matrix
         # if general Hartree-Fock algorithm is chosen.
-        odqd = qs.GeneralOrbitalSystem(2,odqd)
+        odqd = qs.GeneralOrbitalSystem(N,odqd)
     elseif algorithm == "RHF" # redefines the dimensions M and N if the spin-restricted Hartree-Fock algorithm is chosen
         N /= 2
         M /= 2
@@ -128,6 +128,8 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
         println("Atomic orbital quantities calculated and stored!")
         println()
     end
+
+    algorithm_colour::String = (algorithm == "GHF" ? "#4aa888" : "#aa4888") # sets the colour of spatial density plots for this algorithm.
 
 
     # VARIABLES:
@@ -231,7 +233,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
     function plot_atomic_orbitals()
         # plots the atomic orbitals (in discretised position basis) at their corresponding energy level.
         figure(figsize=(8,6))
-        title(algorithm*" atomic orbitals of a 1D harmonic laser trap with "*(algorithm == "GHF" ? N : 2*N)*" electrons"*"\n")
+        title(algorithm*" atomic orbitals of a 1D harmonic laser trap with "*string(particles)*" electrons"*"\n")
         plot(lattice,_U(lattice);color="#fdce0b")
         if algorithm == "GHF"
             for a in 1:2:M
@@ -250,16 +252,16 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); partic
     end
 
     function plot_spatial_density()
-        # plots the (discretised) spatial particle density of the system.
+        # plots the (discretised) spatial particle density of the system at its corresponding Hartree-Fock energy.
         figure(figsize=(8,6))
-        title(algorithm," spatial density of a 1D harmonic laser trap with 2 electrons"*
+        title(algorithm*" spatial density of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
         plot(lattice,_U(lattice);color="#fdce0b",label=raw"$U$ $\left[m\left(\frac{e^2}{4πϵ\hbar}\right)^2\right]$")
-        plot(lattice,ρ;label=raw"$\rho$")
+        plot(lattice,ρ.+E;label=raw"$\rho$",color=algorithm_colour)
         grid()
-        xlim((-6,6))
+        xlim((-10,10))
         xlabel(raw"$x$ $\left[\frac{4πϵ}{me^2}\right]$")
-        ylim((0.0,1.0))
+        ylim((0.0,E+2.0))
         subplots_adjust(right=0.75)
         legend(title=system_parameters(trap;type="breaks"),bbox_to_anchor=(1.05,1.0))
     end
@@ -394,7 +396,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
         # calculates and plots the ground state fidelity evolution of the system.
         Γs = [abs2(det(Cs[1]'*Cs[n])) for n in 1:time_resolution]
         figure(figsize=(8,6))
-        title(algorithm*" ground state fidelity of a 1D harmonic laser trap with "*string(algorithm == "GHF" ? N : 2*N)*" electrons"*
+        title(algorithm*" ground state fidelity of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
         plot(λ*ω/2pi*ts,Γs;color="#abcdef",label=raw"$\Gamma$")
         xlabel(raw"$\frac{2\pi}{\lambda\omega}t \quad \left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
@@ -418,7 +420,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
             end
         end
         figure(figsize=(8,6))
-        title(algorithm*" expected energy of a 1D harmonic laser trap with "*string(algorithm == "GHF" ? N : 2*N)*" electrons"*
+        title(algorithm*" expected energy of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
         plot(λ*ω/2pi*ts,real.(Es);color="#fdce0b",label=raw"$E$")
         plot(λ*ω/2pi*ts,imag.(Es);linestyle="dotted",color="#fdce0b")
@@ -438,7 +440,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); pa
             end
         end
         figure(figsize=(8,6))
-        title(algorithm*" expected dipole moment of a 1D harmonic laser trap with "*string(algorithm == "GHF" ? N : 2*N)*" electrons"*
+        title(algorithm*" expected dipole moment of a 1D harmonic laser trap with "*string(particles)*" electrons"*
             "\n("*system_parameters(trap)*")\n")
         plot(λ*ω/2pi*ts,real.(Ds);color="#ff750a",label=raw"$D$")
         plot(λ*ω/2pi*ts,imag.(Ds);linestyle="dotted",color="#ff750a")

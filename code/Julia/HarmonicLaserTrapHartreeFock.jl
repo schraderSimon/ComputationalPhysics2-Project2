@@ -231,7 +231,7 @@ function find_HF_state(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 end
 
 function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
-        Δt::Float64=(isinf(trap.T) ? 2*2pi/trap.ω : 2*trap.T), resolution::Int64=1000,
+        Δt::Float64= 2*2pi/trap.ω, resolution::Int64=1000,
         text_output::String="full", plot_output::String="none")
     # finds an approximation to the ground state time evolution of the given harmonic laser trap
     # by setting up a discretised and truncated one-body trap with the given number of orbitals using the quantum_systems package,
@@ -280,8 +280,11 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
 
     # VARIABLES:
 
-    Cs::Vector{Matrix{ComplexF64}} = [zeros(M,2) for n in 1:resolution] # is the to-be-calculated
-    Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution] # is the to-be-calculated density matrix evolution of the system.
+    Cs::Vector{Matrix{ComplexF64}} = [zeros(M,2) for n in 1:resolution]
+        # is the to-be-calculated coefficient matrix evolution of the system.
+    Ps::Vector{Matrix{ComplexF64}} = [zeros(M,M) for n in 1:resolution]
+        # is the to-be-calculated density matrix evolution of the system.
+        
     Γs::Vector{Float64} = zeros(resolution) # is the to-be-calculated ground state fidelity evolution of the system.
     Es::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated energy evolution of the system.
     Ds::Vector{ComplexF64} = zeros(resolution) # is the to-be-calculated dipole moment evolution of the system.
@@ -303,7 +306,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2();
             F += P[a,b]*u[:,b,:,a]
         end
 
-        ∂tC = im*F*C
+        ∂tC .= im*F*C
     end
 
     function calculate_n_plot_fidelity!()

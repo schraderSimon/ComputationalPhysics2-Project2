@@ -317,7 +317,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D2=HarmonicLaserTrap1D2(); Δ
         title("Expected energy of a 1D harmonic laser trap with 2 electrons"*"\n")
         plot(λ*ω/2pi*ts,real.(Es);color="#fdce0b")
         plot(λ*ω/2pi*ts,imag.(Es);linestyle="dotted",color="#fdce0b")
-        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\frac{\hbar^3}{m}\left[\left(\frac{4πϵ}{e^2}\right)^2\right]$")
+        xlabel(raw"$\frac{2\pi}{\lambda\omega}t$ $\left[\frac{\hbar^3}{m}\left(\frac{4πϵ}{e^2}\right)^2\right]$")
         ylabel(raw"$\langle E \rangle$ $\left[\frac{m}{\hbar^2}\left(\frac{e^2}{4πϵ}\right)^2\right]$")
     end
 

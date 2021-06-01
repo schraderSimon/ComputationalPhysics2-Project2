@@ -1,4 +1,5 @@
 # Computational Physics 2 - FYS4411/FYS9411 - Project2
+#Jonas Flaten & Simon Schrader
 Time dependent Hartree-Fock theory
 
 ## How to run our code

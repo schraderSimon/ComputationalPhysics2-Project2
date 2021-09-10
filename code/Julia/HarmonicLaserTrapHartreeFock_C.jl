@@ -389,7 +389,7 @@ function find_HF_evolution(trap::HarmonicLaserTrap1D=HarmonicLaserTrap1D(); part
             end
         end
 
-        ∂tC .= im*F*C
+        ∂tC .= -im*F*C
     end
 
     function calculate_n_plot_fidelity!()
